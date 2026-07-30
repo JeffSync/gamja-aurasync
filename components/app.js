@@ -304,6 +304,13 @@ export default class App extends Component {
 		if (config.server.auth === "external") {
 			connectParams.saslExternal = true;
 		}
+                if (config.server.saslPlain && typeof config.server.saslPlain.username === "string") {
+			connectParams.saslPlain = {
+				username: config.server.saslPlain.username,
+				password: config.server.saslPlain.password,
+			};
+		}
+
 		if (typeof config.server.ping === "number") {
 			connectParams.ping = config.server.ping;
 		}
@@ -319,12 +326,18 @@ export default class App extends Component {
 
 		let autoconnect = store.autoconnect.load();
 		if (autoconnect) {
+			// On garde le saslPlain de la config.json (frais, credentials a jour),
+			// il ne doit jamais etre ecrase par une valeur perimee du localStorage.
+			let freshSaslPlain = connectParams.saslPlain;
 			connectParams = {
 				...connectParams,
 				...autoconnect,
 				autoconnect: true,
 				autojoin: [], // handled by store.Buffer
 			};
+			if (freshSaslPlain) {
+				connectParams.saslPlain = freshSaslPlain;
+			}
 		}
 
 		let autojoin = [];
@@ -407,15 +420,10 @@ export default class App extends Component {
 				connectParams.nick = saslOauthBearer.username;
 			}
 		}
-
 		if (autojoin.length > 0) {
-			if (connectParams.autoconnect) {
-				// Ask the user whether they want to join that new channel.
-				// TODO: support multiple channels here
-				this.autoOpenURL = { host: "", entity: autojoin[0] };
-			} else {
-				connectParams.autojoin = autojoin;
-			}
+			// Les salons selectionnes sur /tchat (parametre URL channels) sont
+			// toujours rejoints, y compris en autoconnect.
+			connectParams.autojoin = autojoin;
 		}
 
 		this.setState({ loading: false, connectParams });
