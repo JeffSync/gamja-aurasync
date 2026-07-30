@@ -1,0 +1,158 @@
+/*
+ * Theme AuraSync pour le t'Chat.
+ * Fichier separe de style.css pour survivre aux mises a jour upstream.
+ * Charge apres style.css : redefinit les variables et ajoute nos regles.
+ */
+
+:root {
+	/* Palette aurora AuraSync */
+	--aura-bg: #070b14;
+	--aura-bg-soft: #0c1220;
+	--aura-cyan: #22d3ee;
+	--aura-violet: #8b5cf6;
+	--aura-text: #e8eef7;
+	--aura-text-soft: #a8b6cc;
+	--aura-text-dim: #6b7d99;
+	--aura-stroke: rgba(148, 178, 220, 0.14);
+	--aura-glass: rgba(18, 28, 46, 0.72);
+
+	/* Remappage des variables Gamja — sombre inconditionnel */
+	--main-background: var(--aura-bg);
+	--main-color: var(--aura-text);
+	--sidebar-background: var(--aura-bg-soft);
+	--expander-background: rgba(34, 211, 238, 0.12);
+	--expander-background-hover: rgba(34, 211, 238, 0.22);
+	--expander-border: var(--aura-stroke);
+	--button-color: #06212a;
+	--button-background: var(--aura-cyan);
+	--button-background-hover: #67e8f9;
+	--button-border: transparent;
+	--danger-button-color: #fecaca;
+	--danger-button-background: rgba(239, 68, 68, 0.18);
+	--danger-button-background-hover: rgba(239, 68, 68, 0.32);
+	--danger-button-border: rgba(248, 113, 113, 0.35);
+	--buffer-button-background-hover: rgba(34, 211, 238, 0.10);
+	--green: #4ade80;
+	--gray: var(--aura-text-dim);
+	--red: #fb7185;
+}
+
+html {
+	scrollbar-color: rgba(34, 211, 238, 0.35) transparent;
+}
+
+body {
+	font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+	color: var(--aura-text);
+	background: var(--aura-bg);
+}
+
+/* Orbes aurora fixes derriere l'interface (statiques : pas de cout GPU au scroll) */
+body::before,
+body::after {
+	content: "";
+	position: fixed;
+	border-radius: 50%;
+	filter: blur(90px);
+	opacity: 0.30;
+	pointer-events: none;
+	z-index: 0;
+}
+body::before {
+	width: 46vw;
+	height: 46vw;
+	top: -14vw;
+	left: -10vw;
+	background: var(--aura-cyan);
+}
+body::after {
+	width: 42vw;
+	height: 42vw;
+	bottom: -16vw;
+	right: -12vw;
+	background: var(--aura-violet);
+}
+
+/* Zone de conversation : logo t'Chat en filigrane */
+#buffer {
+	position: relative;
+	background:
+		url("./tchat-logo.png") no-repeat center center,
+		var(--aura-bg);
+	background-size: min(48vw, 420px) auto;
+	background-blend-mode: soft-light;
+}
+
+/* Le texte des messages reste au-dessus, contraste intact */
+#buffer > * {
+	position: relative;
+	z-index: 1;
+}
+
+/* Panneaux lateraux : glass-card (fixes, donc backdrop-filter sans risque) */
+#buffer-list,
+#member-list {
+	background: var(--aura-glass);
+	backdrop-filter: blur(14px);
+	border-right: 1px solid var(--aura-stroke);
+	position: relative;
+	z-index: 2;
+}
+#member-list {
+	border-right: none;
+	border-left: 1px solid var(--aura-stroke);
+}
+
+/* Barre de saisie */
+#composer {
+	background: var(--aura-glass);
+	backdrop-filter: blur(14px);
+	border-top: 1px solid var(--aura-stroke);
+	position: relative;
+	z-index: 2;
+}
+#composer input,
+#composer textarea {
+	background: rgba(7, 11, 20, 0.6);
+	color: var(--aura-text);
+	border: 1px solid var(--aura-stroke);
+	border-radius: 10px;
+	font-family: inherit;
+	transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+#composer input:focus,
+#composer textarea:focus {
+	outline: none;
+	border-color: var(--aura-cyan);
+	box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.16);
+}
+
+/* En-tete du salon */
+#buffer-header {
+	background: var(--aura-glass);
+	backdrop-filter: blur(14px);
+	border-bottom: 1px solid var(--aura-stroke);
+	position: relative;
+	z-index: 2;
+}
+
+/* Boutons : arrondis et transitions douces */
+button {
+	border-radius: 8px;
+	font-family: inherit;
+	font-weight: 500;
+	transition: background 0.18s ease, transform 0.12s ease;
+}
+button:hover {
+	transform: translateY(-1px);
+}
+button:active {
+	transform: translateY(0);
+}
+
+/* Liste des salons : survol cyan discret */
+#buffer-list a,
+#buffer-list .buffer {
+	border-radius: 8px;
+	transition: background 0.16s ease, color 0.16s ease;
+}
