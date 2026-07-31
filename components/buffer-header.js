@@ -12,9 +12,9 @@ const UserStatus = {
 
 function NickStatus(props) {
 	let textMap = {
-		[UserStatus.HERE]: "User is online",
-		[UserStatus.GONE]: "User is away",
-		[UserStatus.OFFLINE]: "User is offline",
+		[UserStatus.HERE]: "Utilisateur en ligne",
+		[UserStatus.GONE]: "Utilisateur absent(e)",
+		[UserStatus.OFFLINE]: "Utilisateur hors ligne",
 	};
 	let text = textMap[props.status];
 	return html`<span class="status status-${props.status}" title=${text}>●</span>`;
@@ -31,36 +31,36 @@ export default function BufferHeader(props) {
 	case BufferType.SERVER:
 		switch (props.server.status) {
 		case ServerStatus.DISCONNECTED:
-			description = "Disconnected";
+			description = "Déconnecté(e)";
 			break;
 		case ServerStatus.CONNECTING:
-			description = "Connecting...";
+			description = "Connexion...";
 			break;
 		case ServerStatus.REGISTERING:
-			description = "Logging in...";
+			description = "Authentification...";
 			break;
 		case ServerStatus.REGISTERED:
 			if (props.bouncerNetwork) {
 				switch (props.bouncerNetwork.state) {
 				case "disconnected":
-					description = "Bouncer disconnected from network";
+					description = "Passerelle déconnectée";
 					if (props.bouncerNetwork.error) {
 						description += ": " + props.bouncerNetwork.error;
 					}
 					break;
 				case "connecting":
-					description = "Bouncer connecting to network...";
+					description = "Connexion de la passerelle...";
 					break;
 				case "connected":
 					// host can be undefined e.g. when using UNIX domain sockets
-					description = `Connected to ${props.bouncerNetwork.host || "network"}`;
+					description = `Connecté(e) au t'Chat`;
 					break;
 				}
 			} else if (props.buffer.serverInfo) {
 				let serverInfo = props.buffer.serverInfo;
-				description = `Connected to ${serverInfo.name}`;
+				description = `Connecté(e) au t'Chat`;
 			} else {
-				description = "Connected";
+				description = "Connecté(e)";
 			}
 			break;
 		}
@@ -179,15 +179,15 @@ export default function BufferHeader(props) {
 			} else if (props.server.reliableUserAccounts) {
 				// If the server supports MONITOR and WHOX, we can faithfully
 				// keep user.account up-to-date for user queries
-				let desc = "This user has not been verified and is not logged in.";
+				let desc = "Ce compte n'est pas authentifié.";
 				details.push(html`<abbr title=${desc}>unauthenticated</abbr>`);
 			}
 			if (props.user.operator) {
-				let desc = "This user is a server operator, they have administrator privileges.";
+				let desc = "Membre de l'équipe AuraSync, avec les droits d'administration.";
 				details.push(html`<abbr title=${desc}>server operator</abbr>`);
 			}
 			if (props.user.bot) {
-				let desc = "This user is an automated bot.";
+				let desc = "Ce compte est un robot automatisé.";
 				details.push(html`<abbr title=${desc}>bot</abbr>`);
 			}
 			details = details.map((item, i) => {

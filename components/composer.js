@@ -228,7 +228,7 @@ export default class Composer extends Component {
 			urls = await Promise.all(promises);
 		} catch (err) {
 			if (!signal.aborted) {
-				this.props.onError(new Error("Failed to upload files", { cause: err }));
+				this.props.onError(new Error("Échec de l'envoi du fichier", { cause: err }));
 			}
 			return;
 		} finally {
@@ -422,9 +422,9 @@ export default class Composer extends Component {
 		}
 		let className = classes.join(" ");
 
-		let placeholder = "Type a message";
+		let placeholder = "Écris un message";
 		if (this.props.commandOnly) {
-			placeholder = "Type a command (see /help)";
+			placeholder = "Écris une commande (voir /help)";
 		}
 
 		let uploadButton = null;
@@ -435,7 +435,7 @@ export default class Composer extends Component {
 						<button
 							type="button"
 							id="composer-spinner"
-							title="Cancel upload"
+							title="Annuler l'envoi"
 							onClick=${this.handleCancelClick}
 						>
 							${spinnerIcon}${xIcon}
@@ -444,7 +444,7 @@ export default class Composer extends Component {
 					<button
 						type="button"
 						id="composer-upload"
-						title="Upload file"
+						title="Envoyer un fichier"
 						onClick=${this.handleUploadClick}
 					>
 						${uploadIcon}

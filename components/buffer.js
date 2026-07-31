@@ -313,7 +313,7 @@ class LogLine extends Component {
 			break;
 		case irc.RPL_WELCOME:
 			let nick = msg.params[0];
-			content = html`Connected to server, your nickname is ${nick}`;
+			content = html`Connecté(e) au t'Chat, ton pseudo est ${nick}`;
 			break;
 		case irc.RPL_INVITING:
 			invitee = msg.params[1];
@@ -325,10 +325,10 @@ class LogLine extends Component {
 			break;
 		case irc.RPL_LOGGEDIN:
 			account = msg.params[2];
-			content = html`You are now authenticated as ${account}`;
+			content = html`Tu es maintenant authentifié(e) en tant que ${account}`;
 			break;
 		case irc.RPL_LOGGEDOUT:
-			content = html`You are now unauthenticated`;
+			content = html`Tu n'es plus authentifié(e)`;
 			break;
 		case "REGISTER":
 			account = msg.params[1];
@@ -350,22 +350,22 @@ class LogLine extends Component {
 			break;
 		case "VERIFY":
 			account = msg.params[1];
-			content = html`The new account has been verified, you are now authenticated as ${account}`;
+			content = html`Le nouveau compte a été vérifié, tu es authentifié(e) en tant que ${account}`;
 			break;
 		case irc.RPL_UMODEIS:
 			let mode = msg.params[1];
 			if (mode) {
-				content = html`Your user mode is ${mode}`;
+				content = html`Ton mode utilisateur est ${mode}`;
 			} else {
-				content = html`You have no user mode`;
+				content = html`Tu n'as aucun mode utilisateur`;
 			}
 			break;
 		case irc.RPL_CHANNELMODEIS:
-			content = html`Channel mode is ${msg.params.slice(2).join(" ")}`;
+			content = html`Le mode du salon est ${msg.params.slice(2).join(" ")}`;
 			break;
 		case irc.RPL_CREATIONTIME:
 			let date = new Date(parseInt(msg.params[2], 10) * 1000);
-			content = html`Channel was created on ${date.toLocaleString()}`;
+			content = html`Le salon a été créé le ${date.toLocaleString()}`;
 			break;
 		// MONITOR messages are only displayed in user buffers
 		case irc.RPL_MONONLINE:
