@@ -129,7 +129,7 @@ export default function BufferHeader(props) {
 					key="part"
 					class="danger"
 					onClick=${props.onClose}
-				>Leave</button>
+				>Quitter</button>
 			`);
 		} else {
 			if (fullyConnected) {
@@ -145,7 +145,7 @@ export default function BufferHeader(props) {
 					key="part"
 					class="danger"
 					onClick=${props.onClose}
-				>Close</button>
+				>Fermer</button>
 			`);
 		}
 		break;
@@ -208,7 +208,7 @@ export default function BufferHeader(props) {
 				key="close"
 				class="danger"
 				onClick=${props.onClose}
-			>Close</button>
+			>Fermer</button>
 		`;
 		break;
 	}

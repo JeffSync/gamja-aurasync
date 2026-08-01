@@ -156,3 +156,45 @@ button:active {
 	border-radius: 8px;
 	transition: background 0.16s ease, color 0.16s ease;
 }
+
+/* Barre du nombre d'utilisateurs : fondue dans la colonne */
+#member-list-header {
+	background-color: transparent;
+	border-left: none;
+	border-bottom: 1px solid var(--aura-stroke);
+	padding: 11px 12px;
+	font-size: 0.82rem;
+	color: var(--aura-text-soft);
+}
+
+/* Colonnes laterales : largeur et respiration */
+#buffer-list ul,
+#member-list ul {
+	padding: 4px 6px;
+	margin: 0;
+	box-sizing: border-box;
+}
+#buffer-list li,
+#member-list li {
+	padding: 4px 9px;
+	border-radius: 7px;
+}
+
+/* Espace dedie au logo t'Chat, en tete de la colonne des salons.
+   Cible la <section> interne pour ne pas casser le flex row d'origine. */
+#buffer-list {
+	flex-direction: column;
+}
+#aurasync-logo {
+	display: block;
+	flex-shrink: 0;
+	height: 128px;
+	background: url("./aurasync-mark.png") no-repeat center 16px;
+	background-size: auto 88px;
+	border-bottom: 1px solid var(--aura-stroke);
+	transition: filter 0.18s ease, transform 0.18s ease;
+}
+#aurasync-logo:hover {
+	filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.5));
+	transform: scale(1.03);
+}

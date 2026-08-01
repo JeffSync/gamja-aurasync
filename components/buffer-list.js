@@ -17,7 +17,7 @@ function BufferItem(props) {
 
 	let name = props.buffer.name;
 	if (props.buffer.type === BufferType.SERVER) {
-		name = getServerName(props.server, props.bouncerNetwork);
+		name = "t'Chat";
 	}
 
 	let title;
@@ -59,7 +59,11 @@ function BufferItem(props) {
 }
 
 export default function BufferList(props) {
-	let items = Array.from(props.buffers.values()).map((buf) => {
+	// L'onglet serveur est masque : le t'Chat est une surface de conversation,
+	// la gestion (salons, comptes) passe par le site AuraSync.
+	let items = Array.from(props.buffers.values()).filter((buf) => {
+		return buf.type !== BufferType.SERVER;
+	}).map((buf) => {
 		let server = props.servers.get(buf.server);
 
 		let bouncerNetwork = null;
@@ -81,7 +85,14 @@ export default function BufferList(props) {
 	});
 
 	return html`
-		<ul role="tablist" aria-label="Buffer list">
+		<a
+		id="aurasync-logo"
+			href="https://www.aurasync.fr"
+			target="_blank"
+			rel="noopener"
+			title="Retour sur AuraSync"
+		></a>
+		<ul role="tablist" aria-label="Liste des salons">
 			${items}
 		</ul>
 	`;

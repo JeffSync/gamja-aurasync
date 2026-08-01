@@ -2239,7 +2239,7 @@ export default class App extends Component {
 					id="member-list"
 					class=${this.state.openPanels.memberList ? "expand" : ""}
 					role="complementary"
-					aria-label="Members list"
+					aria-label="Liste des membres"
 				>
 					<button
 						class="expander"
@@ -2250,7 +2250,7 @@ export default class App extends Component {
 					</button>
 					<section>
 						<section id="member-list-header">
-							${activeBuffer.members.size} users
+							${activeBuffer.members.size} Utilisateur${activeBuffer.members.size > 1 ? "s" : ""}
 						</section>
 						<${MemberList}
 							members=${activeBuffer.members}
@@ -2268,7 +2268,7 @@ export default class App extends Component {
 		switch (this.state.dialog) {
 		case "network":
 			let isNew = !dialogData.id;
-			let title = isNew ? "Add network" : "Edit network";
+			let title = isNew ? "Ajouter un serveur" : "Modifier le serveur";
 			dialog = html`
 				<${Dialog} title=${title} onDismiss=${this.dismissDialog}>
 					<${NetworkForm}
@@ -2283,14 +2283,14 @@ export default class App extends Component {
 			break;
 		case "help":
 			dialog = html`
-				<${Dialog} title="Help" onDismiss=${this.dismissDialog}>
+				<${Dialog} title="Aide" onDismiss=${this.dismissDialog}>
 					<${Help}/>
 				</>
 			`;
 			break;
 		case "join":
 			dialog = html`
-				<${Dialog} title="Join channel" onDismiss=${this.dismissDialog}>
+				<${Dialog} title="Rejoindre un salon" onDismiss=${this.dismissDialog}>
 					<${JoinForm} channel=${dialogData.channel} onSubmit=${this.handleJoinSubmit}/>
 				</>
 			`;
@@ -2339,7 +2339,7 @@ export default class App extends Component {
 			break;
 		case "settings":
 			dialog = html`
-				<${Dialog} title="Settings" onDismiss=${this.dismissDialog}>
+				<${Dialog} title="Paramètres" onDismiss=${this.dismissDialog}>
 					<${SettingsForm}
 						settings=${this.state.settings}
 						showProtocolHandler=${dialogData.showProtocolHandler}
@@ -2352,7 +2352,7 @@ export default class App extends Component {
 			break;
 		case "switch":
 			dialog = html`
-				<${Dialog} title="Switch to a channel or user" onDismiss=${this.dismissDialog}>
+				<${Dialog} title="Aller à un salon ou une conversation" onDismiss=${this.dismissDialog}>
 					<${SwitcherForm}
 						buffers=${this.state.buffers}
 						servers=${this.state.servers}
