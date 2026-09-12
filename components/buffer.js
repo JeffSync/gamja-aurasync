@@ -139,7 +139,7 @@ class LogLine extends Component {
 					content = html`* ${createNick(msg.prefix.name)} ${linkify(stripANSI(ctcp.param), onChannelClick)}`;
 				} else {
 					content = html`
-						${createNick(msg.prefix.name)} has sent a CTCP command: ${ctcp.command} ${ctcp.param}
+						${createNick(msg.prefix.name)} a envoyé une commande CTCP : ${ctcp.command} ${ctcp.param}
 					`;
 				}
 			} else {
@@ -149,7 +149,7 @@ class LogLine extends Component {
 					prefix = suffix = "-";
 				}
 				if (this.props.redacted) {
-					content = html`<i>This message has been deleted.</i>`;
+					content = html`<i>Ce message a été supprimé.</i>`;
 				} else {
 					content = html`${linkify(stripANSI(text), onChannelClick)}`;
 					lineClass += " talk";
@@ -181,28 +181,28 @@ class LogLine extends Component {
 			break;
 		case "JOIN":
 			content = html`
-				${createNick(msg.prefix.name)} has joined
+				${createNick(msg.prefix.name)} a rejoint le salon
 			`;
 			break;
 		case "PART":
 			content = html`
-				${createNick(msg.prefix.name)} has left
+				${createNick(msg.prefix.name)} a quitté le salon
 			`;
 			break;
 		case "QUIT":
 			content = html`
-				${createNick(msg.prefix.name)} has quit
+				${createNick(msg.prefix.name)} s'est déconnecté(e)
 			`;
 			break;
 		case "NICK":
 			let newNick = msg.params[0];
 			content = html`
-				${createNick(msg.prefix.name)} is now known as ${createNick(newNick)}
+				${createNick(msg.prefix.name)} est désormais connu(e) sous le nom de ${createNick(newNick)}
 			`;
 			break;
 		case "KICK":
 			content = html`
-				${createNick(msg.params[1])} was kicked by ${createNick(msg.prefix.name)} (${msg.params.slice(2)})
+				${createNick(msg.params[1])} a été expulsé(e) par ${createNick(msg.prefix.name)} (${msg.params.slice(2)})
 			`;
 			break;
 		case "MODE":
@@ -218,41 +218,41 @@ class LogLine extends Component {
 				let arg = msg.params[2];
 
 				let verb;
-				switch (mode) {
+								switch (mode) {
 				case "b":
-					verb = plusMinus === "+" ? "added" : "removed";
-					content = html`${user} has ${verb} a ban on ${arg}`;
+					verb = plusMinus === "+" ? "a banni" : "a débanni";
+					content = html`${user} ${verb} ${arg}`;
 					break;
 				case "e":
-					verb = plusMinus === "+" ? "added" : "removed";
-					content = html`${user} has ${verb} a ban exemption on ${arg}`;
+					verb = plusMinus === "+" ? "a ajouté" : "a retiré";
+					content = html`${user} ${verb} une exemption de ban pour ${arg}`;
 					break;
 				case "l":
 					if (plusMinus === "+") {
-						content = html`${user} has set the channel user limit to ${arg}`;
+						content = html`${user} a limité le salon à ${arg} utilisateurs`;
 					} else {
-						content = html`${user} has unset the channel user limit`;
+						content = html`${user} a retiré la limite d'utilisateurs du salon`;
 					}
 					break;
 				case "i":
-					verb = plusMinus === "+" ? "marked": "unmarked";
-					content = html`${user} has ${verb} as invite-only`;
+					verb = plusMinus === "+" ? "a activé" : "a retiré";
+					content = html`${user} ${verb} le mode invitation du salon`;
 					break;
 				case "m":
-					verb = plusMinus === "+" ? "marked": "unmarked";
-					content = html`${user} has ${verb} as moderated`;
+					verb = plusMinus === "+" ? "a activé" : "a retiré";
+					content = html`${user} ${verb} le mode modération du salon`;
 					break;
 				case "s":
-					verb = plusMinus === "+" ? "marked": "unmarked";
-					content = html`${user} has ${verb} as secret`;
+					verb = plusMinus === "+" ? "a rendu secret" : "a rendu public";
+					content = html`${user} ${verb} le salon`;
 					break;
 				case "t":
-					verb = plusMinus === "+" ? "locked": "unlocked";
-					content = html`${user} has ${verb} the channel topic`;
+					verb = plusMinus === "+" ? "a verrouillé" : "a déverrouillé";
+					content = html`${user} ${verb} le topic du salon`;
 					break;
 				case "n":
-					verb = plusMinus === "+" ? "allowed": "denied";
-					content = html`${user} has ${verb} external messages to this channel`;
+					verb = plusMinus === "+" ? "a interdit" : "a autorisé";
+					content = html`${user} ${verb} les messages externes au salon`;
 					break;
 				}
 				if (content) {
@@ -267,32 +267,32 @@ class LogLine extends Component {
 						break;
 					}
 				}
+
 				if (membershipName && arg) {
-					let verb = plusMinus === "+" ? "granted" : "revoked";
-					let preposition = plusMinus === "+" ? "to" : "from";
+					let verb = plusMinus === "+" ? "a donné" : "a retiré";
 					content = html`
-						${user} has ${verb} ${membershipName} privileges ${preposition} ${createNick(arg)}
+						${user} ${verb} les privilèges de ${membershipName} à ${createNick(arg)}
 					`;
 					break;
 				}
 			}
 
 			content = html`
-				${user} sets mode ${msg.params.slice(1).join(" ")}
+				${user} applique le mode ${msg.params.slice(1).join(" ")}
 			`;
 			if (server.cm(buf.name) !== server.cm(target)) {
-				content = html`${content} on ${target}`;
+				content = html`${content} sur ${target}`;
 			}
 			break;
 		case "TOPIC":
 			let topic = msg.params[1];
 			if (topic) {
 				content = html`
-					${createNick(msg.prefix.name)} changed the topic to: ${linkify(stripANSI(topic), onChannelClick)}
+					${createNick(msg.prefix.name)} a changé le topic en : ${linkify(stripANSI(topic), onChannelClick)}
 				`;
 			} else {
 				content = html`
-					${createNick(msg.prefix.name)} cleared the topic
+					${createNick(msg.prefix.name)} a effacé le topic
 				`;
 			}
 			break;
@@ -307,7 +307,7 @@ class LogLine extends Component {
 				`;
 			} else {
 				content = html`
-					${createNick(msg.prefix.name)} has invited ${createNick(invitee)} to the channel
+					${createNick(msg.prefix.name)} a invité ${createNick(invitee)} dans le salon
 				`;
 			}
 			break;
@@ -317,7 +317,7 @@ class LogLine extends Component {
 			break;
 		case irc.RPL_INVITING:
 			invitee = msg.params[1];
-			content = html`${createNick(invitee)} has been invited to the channel`;
+			content = html`${createNick(invitee)} a été invité(e) dans le salon`;
 			break;
 		case irc.RPL_MOTD:
 			lineClass = "motd";
@@ -369,10 +369,10 @@ class LogLine extends Component {
 			break;
 		// MONITOR messages are only displayed in user buffers
 		case irc.RPL_MONONLINE:
-			content = html`${createNick(buf.name)} is online`;
+			content = html`${createNick(buf.name)} est en ligne`;
 			break;
 		case irc.RPL_MONOFFLINE:
-			content = html`${createNick(buf.name)} is offline`;
+			content = html`${createNick(buf.name)} est hors ligne`;
 			break;
 		default:
 			if (irc.isError(msg.command) && msg.command !== irc.ERR_NOMOTD) {
@@ -490,7 +490,7 @@ class FoldGroup extends Component {
 
 			let newNick = msg.params[0];
 			content.push(html`
-				${createNick(msg.prefix.name)} is now known as ${createNick(newNick)}
+				${createNick(msg.prefix.name)} est désormais connu(e) sous le nom de ${createNick(newNick)}
 			`);
 		});
 
@@ -567,7 +567,7 @@ class NotificationNagger extends Component {
 			<div class="logline nag" role="listitem">
 				<${Timestamp}/>
 				${" "}
-				<a href="#" onClick=${this.handleClick}>Turn on desktop notifications</a> to get notified about new messages
+											<a href="#" onClick=${this.handleClick}>Activez les notifications</a> pour être prévenu(e) des nouveaux messages
 			</div>
 		`;
 	}
@@ -608,7 +608,7 @@ class ProtocolHandlerNagger extends Component {
 			<div class="logline nag" role="listitem">
 				<${Timestamp}/>
 				${" "}
-				<a href="#" onClick=${this.handleClick}>Register our protocol handler</a> to open IRC links with ${name}
+											<a href="#" onClick=${this.handleClick}>Associez le protocole IRC</a> pour ouvrir les liens IRC avec ${name}
 			</div>
 		`;
 	}
