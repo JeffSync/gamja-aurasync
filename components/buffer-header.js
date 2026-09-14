@@ -65,79 +65,28 @@ export default function BufferHeader(props) {
 			break;
 		}
 
-		let joinButton = html`
-			<button
-				key="join"
-				onClick=${props.onJoin}
-			>Join channel</button>
-		`;
-		let reconnectButton = html`
-			<button
-				key="reconect"
-				onClick=${props.onReconnect}
-			>Reconnect</button>
-		`;
-		let settingsButton = html`
-			<button
-				key="settings"
-				onClick="${props.onOpenSettings}"
-			>Settings</button>
-		`;
-
-		if (props.server.isBouncer) {
-			if (props.server.bouncerNetID) {
-				if (fullyConnected) {
-					actions.push(joinButton);
-				}
-				if (props.server.status === ServerStatus.REGISTERED) {
-					actions.push(html`
-						<button
-							key="manage"
-							onClick=${props.onManageNetwork}
-						>Manage network</button>
-					`);
-				}
-			} else {
-				if (fullyConnected) {
-					actions.push(html`
-						<button
-							key="add"
-							onClick=${props.onAddNetwork}
-						>Add network</button>
-					`);
-				} else if (props.server.status === ServerStatus.DISCONNECTED) {
-					actions.push(reconnectButton);
-				}
-				actions.push(settingsButton);
-			}
-		} else {
-			if (fullyConnected) {
-				actions.push(joinButton);
-			} else if (props.server.status === ServerStatus.DISCONNECTED) {
-				actions.push(reconnectButton);
-			}
-			actions.push(settingsButton);
-		}
 		break;
 	case BufferType.CHANNEL:
 		if (props.buffer.topic) {
 			description = linkify(stripANSI(props.buffer.topic), props.onChannelClick);
 		}
-		if (props.buffer.joined) {
-			actions.push(html`
-				<button
-					key="part"
-					class="danger"
-					onClick=${props.onClose}
-				>Quitter</button>
-			`);
+				if (props.buffer.joined) {
+			if (props.canPart) {
+				actions.push(html`
+					<button
+						key="part"
+						class="danger"
+						onClick=${props.onClose}
+					>Partir</button>
+				`);
+			}
 		} else {
 			if (fullyConnected) {
 				actions.push(html`
 					<button
 						key="join"
 						onClick=${props.onJoin}
-					>Join</button>
+					>Rejoindre</button>
 				`);
 			}
 			actions.push(html`
@@ -168,27 +117,27 @@ export default function BufferHeader(props) {
 				details.push(`${props.user.username}@${props.user.hostname}`);
 			}
 			if (props.user.account) {
-				let desc = `This user is verified and has logged in to the server with the account ${props.user.account}.`;
+				let desc = `Ce compte est vérifié et authentifié auprès du serveur sous le nom ${props.user.account}.`;
 				let item;
 				if (props.user.account === props.buffer.name) {
-					item = "authenticated";
+					item = "authentifié(e)";
 				} else {
-					item = `authenticated as ${props.user.account}`;
+					item = `authentifié(e) en tant que ${props.user.account}`;
 				}
 				details.push(html`<abbr title=${desc}>${item}</abbr>`);
 			} else if (props.server.reliableUserAccounts) {
 				// If the server supports MONITOR and WHOX, we can faithfully
 				// keep user.account up-to-date for user queries
 				let desc = "Ce compte n'est pas authentifié.";
-				details.push(html`<abbr title=${desc}>unauthenticated</abbr>`);
+				details.push(html`<abbr title=${desc}>non authentifié(e)</abbr>`);
 			}
 			if (props.user.operator) {
 				let desc = "Membre de l'équipe AuraSync, avec les droits d'administration.";
-				details.push(html`<abbr title=${desc}>server operator</abbr>`);
+				details.push(html`<abbr title=${desc}>opérateur du réseau</abbr>`);
 			}
 			if (props.user.bot) {
 				let desc = "Ce compte est un robot automatisé.";
-				details.push(html`<abbr title=${desc}>bot</abbr>`);
+				details.push(html`<abbr title=${desc}>robot</abbr>`);
 			}
 			details = details.map((item, i) => {
 				if (i === 0) {

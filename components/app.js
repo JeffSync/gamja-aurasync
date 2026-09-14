@@ -1654,7 +1654,14 @@ export default class App extends Component {
 			// fallthrough
 		case BufferType.NICK:
 			if (this.state.activeBuffer === buf.id) {
-				this.switchBuffer({ name: SERVER_BUFFER });
+				let fallback = null;
+				for (let b of this.state.buffers.values()) {
+					if (b.id !== buf.id && b.type === BufferType.CHANNEL) {
+						fallback = b.id;
+						break;
+					}
+				}
+				this.switchBuffer(fallback ?? { name: SERVER_BUFFER });
 			}
 			this.setState((state) => {
 				let buffers = new Map(state.buffers);
@@ -2221,6 +2228,7 @@ export default class App extends Component {
 						user=${activeUser}
 						bouncerNetwork=${activeBouncerNetwork}
 						onChannelClick=${this.handleChannelClick}
+							canPart=${Array.from(this.state.buffers.values()).filter((b) => b.type === BufferType.CHANNEL).length > 1}
 						onClose=${() => this.close(activeBuffer)}
 						onJoin=${() => this.handleJoinClick(activeBuffer)}
 						onReconnect=${() => this.reconnect()}
