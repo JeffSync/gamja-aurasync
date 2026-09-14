@@ -670,7 +670,7 @@ class DateSeparator extends Component {
 }
 
 function UnreadSeparator(props) {
-	return html`<div class="separator unread-separator" role="separator">New messages</div>`;
+	return html`<div class="separator unread-separator" role="separator">Nouveaux messages</div>`;
 }
 
 function sameDate(d1, d2) {
