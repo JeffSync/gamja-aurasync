@@ -71,6 +71,7 @@ body::after {
 	bottom: -16vw;
 	right: -12vw;
 	background: var(--aura-violet);
+	opacity: 0.07;
 }
 
 /* Zone de conversation : logo t'Chat en filigrane */
@@ -113,9 +114,11 @@ body::after {
 }
 #composer input,
 #composer textarea {
+	height: 56px;
+	padding: 0 16px;
 	background: rgba(7, 11, 20, 0.6);
 	color: var(--aura-text);
-	border: 1px solid var(--aura-stroke);
+	border: 1px solid rgba(34, 211, 238, 0.32);
 	border-radius: 10px;
 	font-family: inherit;
 	transition: border-color 0.18s ease, box-shadow 0.18s ease;
@@ -124,7 +127,8 @@ body::after {
 #composer textarea:focus {
 	outline: none;
 	border-color: var(--aura-cyan);
-	box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.16);
+	box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.30), 0 0 18px rgba(34, 211, 238, 0.18);
+	background: rgba(12, 18, 32, 0.85);
 }
 
 /* En-tete du salon */
@@ -174,10 +178,16 @@ button:active {
 	margin: 0;
 	box-sizing: border-box;
 }
-#buffer-list li,
-#member-list li {
+#buffer-list li {
 	padding: 4px 9px;
 	border-radius: 7px;
+}
+#member-list li {
+	padding: 4px 9px 4px 0;
+	border-radius: 7px;
+}
+#member-list ul {
+	padding: 4px 6px 4px 0;
 }
 
 /* Espace dedie au logo t'Chat, en tete de la colonne des salons.
@@ -197,4 +207,48 @@ button:active {
 #aurasync-logo:hover {
 	filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.5));
 	transform: scale(1.03);
+}
+
+/* ── Prefixes de privilege ───────────────────────────────────────────── */
+/* Les classes restent en anglais (cf. components/membership.js) ; seul
+   le libelle de l'infobulle est traduit. */
+
+.membership { /* repli */
+	color: var(--aura-text-dim);
+}
+.membership.owner {
+	color: var(--aura-violet);
+}
+.membership.admin {
+	color: var(--aura-violet);
+}
+.membership.operator {
+	color: var(--aura-violet);
+}
+.membership.halfop {
+	color: var(--green);
+}
+.membership.voice {
+	color: #a1663d;
+}
+
+/* ── Barre de topic ──────────────────────────────────────────────────── */
+
+#buffer-header .description {
+	padding: 12px 18px 12px 14px;
+	line-height: 1.5;
+	background: rgba(34, 211, 238, 0.05);
+	border-left: 3px solid var(--aura-cyan);
+	color: var(--aura-text);
+}
+
+/* Chevrons autour du pseudo : en retrait */
+#buffer .nick-caret {
+	color: #b4c0d4;
+}
+
+/* Hauteur de saisie : bat le selecteur de style.css */
+#composer input[type="text"] {
+	height: 56px;
+	padding: 0 16px;
 }

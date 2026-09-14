@@ -43,6 +43,7 @@ function _Timestamp({ date, url, showSeconds }) {
 		if (showSeconds) {
 			timestamp += ":--";
 		}
+		timestamp = "[" + timestamp + "]";
 		return html`<span class="timestamp" aria-hidden="true">${timestamp}</span>`;
 	}
 
@@ -53,6 +54,7 @@ function _Timestamp({ date, url, showSeconds }) {
 		let ss = date.getSeconds().toString().padStart(2, "0");
 		timestamp += ":" + ss;
 	}
+	timestamp = "[" + timestamp + "]";
 	return html`
 		<a
 			href=${url}
@@ -143,7 +145,7 @@ class LogLine extends Component {
 					`;
 				}
 			} else {
-				let prefix = "<", suffix = ">";
+				let prefix = "« ", suffix = " »";
 				if (msg.command === "NOTICE") {
 					lineClass += " notice";
 					prefix = suffix = "-";
@@ -156,6 +158,10 @@ class LogLine extends Component {
 				}
 				content = html`
 					<span class="nick-caret" aria-hidden="true">${prefix}</span>
+					${(() => {
+						let u = buf.members ? buf.members.get(msg.prefix.name) : null;
+						return u ? html`<${Membership} value=${u}/>` : null;
+					})()}
 					${createNick(msg.prefix.name)}
 					<span class="nick-caret" aria-hidden="true">${suffix}</span>
 					${" "}
