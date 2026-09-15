@@ -1219,11 +1219,23 @@ export default class App extends Component {
 				client.params.autojoin = [];
 			}
 
+			// Un message IRC est limite a 512 octets : au-dela, le serveur
+			// tronque et le dernier salon de la ligne arrive coupe. On envoie
+			// donc plusieurs JOIN en bornant la longueur de chaque lot.
 			if (join.length > 0) {
-				client.send({
-					command: "JOIN",
-					params: [join.join(",")],
-				});
+				const MAX_JOIN_LEN = 380;
+				let batch = [], len = 0;
+				for (let chan of join) {
+					if (batch.length > 0 && len + 1 + chan.length > MAX_JOIN_LEN) {
+						client.send({ command: "JOIN", params: [batch.join(",")] });
+						batch = []; len = 0;
+					}
+					len += (batch.length > 0 ? 1 : 0) + chan.length;
+					batch.push(chan);
+				}
+				if (batch.length > 0) {
+					client.send({ command: "JOIN", params: [batch.join(",")] });
+				}
 			}
 
 			let serverHost = bouncerNetwork ? bouncerNetwork.host : "";
