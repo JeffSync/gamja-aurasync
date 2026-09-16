@@ -21,6 +21,8 @@ import { html, Component, createRef } from "../lib/index.js";
 import { strip as stripANSI } from "../lib/ansi.js";
 import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEventsDisplayMode, State, getServerName, receiptFromMessage, isReceiptBefore, isMessageBeforeReceipt, SettingsContext } from "../state.js";
 import commands from "../commands.js";
+import NickMenu from "./nick-menu.js";
+import WhoisPanel from "./whois-panel.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -241,6 +243,10 @@ export default class App extends Component {
 		this.handleComposerSubmit = this.handleComposerSubmit.bind(this);
 		this.handleChannelClick = this.handleChannelClick.bind(this);
 		this.handleNickClick = this.handleNickClick.bind(this);
+		this.handleNickMenuAction = this.handleNickMenuAction.bind(this);
+		this.closeNickMenu = this.closeNickMenu.bind(this);
+		this.openWhois = this.openWhois.bind(this);
+		this.closeWhois = this.closeWhois.bind(this);
 		this.autocomplete = this.autocomplete.bind(this);
 		this.handleBufferScrollTop = this.handleBufferScrollTop.bind(this);
 		this.dismissDialog = this.dismissDialog.bind(this);
@@ -1545,8 +1551,115 @@ export default class App extends Component {
 		return true;
 	}
 
-	handleNickClick(nick) {
-		this.open(nick);
+	handleNickClick(nick, event) {
+		if (!event) {
+			this.open(nick);
+			return;
+		}
+		this.setState({
+			nickMenu: { nick, x: event.clientX, y: event.clientY },
+		});
+	}
+
+	closeNickMenu() {
+		this.setState({ nickMenu: null });
+	}
+
+	openWhois(nick, event) {
+		let centered = true, x = 0, y = 0;
+		if (this.state.nickMenu) {
+			centered = false;
+			x = this.state.nickMenu.x;
+			y = this.state.nickMenu.y;
+		} else if (event) {
+			centered = false;
+			x = event.clientX;
+			y = event.clientY;
+		}
+		this.setState({ whois: { nick, x, y, centered, loading: true, data: null, error: false } });
+
+		let buf = this.state.buffers.get(this.state.activeBuffer);
+		let client = buf ? this.clients.get(buf.server) : null;
+		if (!client) {
+			this.setState({ whois: { nick, x, y, loading: false, data: null, error: true } });
+			return;
+		}
+		client.whois(nick).then((data) => {
+			this.setState((state) => {
+				if (!state.whois || state.whois.nick !== nick) return {};
+				return { whois: Object.assign({}, state.whois, { loading: false, data }) };
+			});
+		}).catch(() => {
+			this.setState((state) => {
+				if (!state.whois || state.whois.nick !== nick) return {};
+				return { whois: Object.assign({}, state.whois, { loading: false, error: true }) };
+			});
+		});
+	}
+
+	closeWhois() {
+		this.setState({ whois: null });
+	}
+
+	handleNickMenuAction(action, nick) {
+		let buf = this.state.buffers.get(this.state.activeBuffer);
+
+		if (action === "profile") {
+			window.open("https://www.aurasync.fr/u/" + encodeURIComponent(nick), "_blank", "noopener");
+			return;
+		}
+		if (action === "whois") {
+			this.openWhois(nick);
+			return;
+		}
+		if (action === "query") {
+			this.open(nick);
+			return;
+		}
+		if (action === "mention") {
+			let input = document.querySelector("#composer input[type=\"text\"]");
+			if (input) {
+				let sep = input.value && !input.value.endsWith(" ") ? " " : "";
+				input.value = input.value + sep + nick + ": ";
+				input.focus();
+				input.dispatchEvent(new Event("input", { bubbles: true }));
+			}
+			return;
+		}
+
+		/* Actions de salon : necessitent un salon actif. */
+		if (!buf || buf.type !== BufferType.CHANNEL) {
+			return;
+		}
+		let client = this.clients.get(buf.server);
+		if (!client) {
+			return;
+		}
+
+		switch (action) {
+		case "voice":
+			client.send({ command: "MODE", params: [buf.name, "+v", nick] });
+			break;
+		case "devoice":
+			client.send({ command: "MODE", params: [buf.name, "-v", nick] });
+			break;
+		case "op":
+			client.send({ command: "MODE", params: [buf.name, "+o", nick] });
+			break;
+		case "deop":
+			client.send({ command: "MODE", params: [buf.name, "-o", nick] });
+			break;
+		case "mute":
+			client.send({ command: "MODE", params: [buf.name, "+b", "~q:" + nick + "!*@*"] });
+			break;
+		case "kick":
+			client.send({ command: "KICK", params: [buf.name, nick] });
+			break;
+		case "ban":
+			client.send({ command: "MODE", params: [buf.name, "+b", nick + "!*@*"] });
+			client.send({ command: "KICK", params: [buf.name, nick] });
+			break;
+		}
 	}
 
 	whoUserBuffer(target, serverID) {
@@ -2186,6 +2299,7 @@ export default class App extends Component {
 
 	render() {
 		if (this.state.loading) {
+
 			let error = null;
 			if (this.state.error) {
 				error = html`<form><p class="error-text">${this.state.error}</p></form>`;
@@ -2394,6 +2508,44 @@ export default class App extends Component {
 			`;
 		}
 
+		let nickMenu = null;
+		if (this.state.nickMenu) {
+			let mBuf = this.state.buffers.get(this.state.activeBuffer);
+			let members = mBuf && mBuf.members ? mBuf.members : null;
+			let selfNick = null;
+			if (mBuf) {
+				let c = this.clients.get(mBuf.server);
+				selfNick = c ? c.nick : null;
+			}
+			nickMenu = html`
+				<${NickMenu}
+					nick=${this.state.nickMenu.nick}
+					x=${this.state.nickMenu.x}
+					y=${this.state.nickMenu.y}
+					selfMembership=${members && selfNick ? members.get(selfNick) : null}
+					targetMembership=${members ? members.get(this.state.nickMenu.nick) : null}
+					onAction=${this.handleNickMenuAction}
+					onClose=${this.closeNickMenu}
+				/>
+			`;
+		}
+
+		let whoisPanel = null;
+		if (this.state.whois) {
+			whoisPanel = html`
+				<${WhoisPanel}
+					nick=${this.state.whois.nick}
+					x=${this.state.whois.x}
+					y=${this.state.whois.y}
+					whois=${this.state.whois.data}
+					loading=${this.state.whois.loading}
+					error=${this.state.whois.error}
+					centered=${this.state.whois.centered}
+					onClose=${this.closeWhois}
+				/>
+			`;
+		}
+
 		let composerReadOnly = false;
 		if (activeServer && activeServer.status !== ServerStatus.REGISTERED) {
 			composerReadOnly = true;
@@ -2462,6 +2614,8 @@ export default class App extends Component {
 			/>
 			${dialog}
 			${error}
+			${nickMenu}
+			${whoisPanel}
 		`;
 
 		return html`

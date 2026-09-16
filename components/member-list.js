@@ -18,7 +18,7 @@ class MemberItem extends Component {
 
 	handleClick(event) {
 		event.preventDefault();
-		this.props.onClick();
+		this.props.onClick(event);
 	}
 
 	render() {
@@ -99,7 +99,7 @@ export default class MemberList extends Component {
 						nick=${nick}
 						membership=${membership}
 						user=${this.props.users.get(nick)}
-						onClick=${() => this.props.onNickClick(nick)}
+						onClick=${(event) => this.props.onNickClick(nick, event)}
 					/>
 				`)}
 			</ul>

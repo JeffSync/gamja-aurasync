@@ -407,3 +407,190 @@ button:active {
 #error-msg button:hover {
 	opacity: 1;
 }
+
+/* ── Menu au clic sur un pseudo ──────────────────────────────────────── */
+
+.nick-menu {
+	position: fixed;
+	z-index: 60;
+	width: 235px;
+	padding: 6px;
+	border: 1px solid var(--aura-stroke);
+	border-radius: 10px;
+	background: rgba(12, 18, 32, 0.97);
+	backdrop-filter: blur(14px);
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+	font-size: 13px;
+}
+
+.nick-menu-head {
+	padding: 9px 10px 10px;
+	border-bottom: 1px solid var(--aura-stroke);
+	margin-bottom: 5px;
+}
+.nick-menu-nick {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	color: var(--aura-text);
+	font-size: 14px;
+	font-weight: 500;
+}
+.nick-menu-prefix {
+	color: var(--aura-violet);
+}
+.nick-menu-status {
+	margin-top: 3px;
+	color: var(--aura-text-dim);
+	font-size: 11px;
+}
+
+.nick-menu-sep {
+	height: 1px;
+	margin: 5px 8px;
+	background: var(--aura-stroke);
+}
+.nick-menu-title {
+	padding: 5px 10px 3px;
+	color: var(--aura-text-dim);
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.07em;
+}
+
+.nick-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	width: 100%;
+	padding: 7px 10px;
+	border: none;
+	border-radius: 7px;
+	background: transparent;
+	color: var(--aura-text-soft);
+	font-family: inherit;
+	font-size: 13px;
+	text-align: left;
+	cursor: pointer;
+	transition: background 0.14s ease, color 0.14s ease;
+}
+.nick-menu-item:hover {
+	background: rgba(34, 211, 238, 0.10);
+	color: var(--aura-text);
+	transform: none;
+}
+.nick-menu-item svg {
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+	color: var(--aura-text-dim);
+}
+.nick-menu-item:hover svg {
+	color: var(--aura-cyan);
+}
+.nick-menu-item.danger {
+	color: #fb7185;
+}
+.nick-menu-item.danger svg {
+	color: #fb7185;
+}
+.nick-menu-item.danger:hover {
+	background: rgba(251, 113, 133, 0.12);
+	color: #ffd7dd;
+}
+.nick-menu-item.danger:hover svg {
+	color: #ffd7dd;
+}
+
+/* ── Panneau « Qui est-ce ? » ────────────────────────────────────────── */
+
+.whois-panel {
+	position: fixed;
+	z-index: 70;
+	width: 300px;
+	padding: 6px 6px 10px;
+	border: 1px solid var(--aura-stroke);
+	border-radius: 10px;
+	background: rgba(12, 18, 32, 0.97);
+	backdrop-filter: blur(14px);
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+	font-size: 13px;
+}
+
+.whois-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 8px 10px 10px;
+	border-bottom: 1px solid var(--aura-stroke);
+	margin-bottom: 6px;
+}
+.whois-nick {
+	color: var(--aura-text);
+	font-size: 14px;
+	font-weight: 500;
+}
+.whois-close {
+	border: none;
+	background: transparent;
+	color: var(--aura-text-dim);
+	font-size: 17px;
+	line-height: 1;
+	padding: 0 2px;
+	cursor: pointer;
+}
+.whois-close:hover {
+	color: var(--aura-text);
+	transform: none;
+}
+
+.whois-row {
+	display: flex;
+	gap: 10px;
+	padding: 4px 10px;
+	align-items: baseline;
+}
+.whois-key {
+	flex-shrink: 0;
+	width: 108px;
+	color: var(--aura-text-dim);
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+.whois-val {
+	color: var(--aura-text-soft);
+	word-break: break-word;
+}
+
+.whois-wait {
+	padding: 10px;
+	color: var(--aura-text-dim);
+	text-align: center;
+}
+
+/* ── Panneau « Qui est-ce ? » : ajustements ──────────────────────────── */
+
+.whois-panel {
+	width: 360px;
+	max-height: 70vh;
+	overflow-y: auto;
+	scrollbar-width: thin;
+}
+.whois-oper {
+	color: #fb7185;
+	font-weight: 500;
+}
+.whois-chans {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 6px;
+}
+.whois-chans span {
+	padding: 1px 6px;
+	border-radius: 5px;
+	background: rgba(34, 211, 238, 0.09);
+	color: var(--aura-text-soft);
+	font-size: 12px;
+}

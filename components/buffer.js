@@ -18,7 +18,7 @@ function djb2(s) {
 function Nick(props) {
 	function handleClick(event) {
 		event.preventDefault();
-		props.onClick();
+		props.onClick(event);
 	}
 
 	let title;
@@ -113,7 +113,7 @@ class LogLine extends Component {
 				<${Nick}
 					nick=${nick}
 					user=${server.users.get(nick)}
-					onClick=${() => onNickClick(nick)}
+					onClick=${(event) => onNickClick(nick, event)}
 				/>
 			`;
 		}
@@ -439,7 +439,7 @@ class FoldGroup extends Component {
 				<${Nick}
 					nick=${nick}
 					user=${server.users.get(nick)}
-					onClick=${() => onNickClick(nick)}
+					onClick=${(event) => onNickClick(nick, event)}
 				/>
 			`;
 		}

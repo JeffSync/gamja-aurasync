@@ -89,6 +89,17 @@ const commands = [
 		},
 	},
 	{
+		name: "oper",
+		usage: "<pseudo> <mot de passe>",
+		description: null,
+		execute: (app, args) => {
+			if (args.length < 2) {
+				throw new Error("Identifiant et mot de passe requis");
+			}
+			getActiveClient(app).send({ command: "OPER", params: args });
+		},
+	},
+	{
 		name: "whois",
 		usage: "<pseudo>",
 		description: "Afficher les informations d'un membre",
@@ -97,8 +108,7 @@ const commands = [
 			if (!nick) {
 				throw new Error("Indique le pseudo");
 			}
-			getActiveClient(app).send({ command: "WHOIS", params: [nick] });
-			markServerBufferUnread(app);
+			app.openWhois(nick);
 		},
 	},
 ];
