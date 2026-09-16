@@ -1703,7 +1703,7 @@ export default class App extends Component {
 
 		let cmd = commands.get(name);
 		if (!cmd) {
-			this.showError(`Unknown command "${name}" (run "/help" to get a command list)`);
+			this.showError(`Commande inconnue : /${name} — tape /aide pour la liste des commandes`);
 			return;
 		}
 

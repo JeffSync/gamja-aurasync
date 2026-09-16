@@ -369,3 +369,41 @@ button:active {
 #buffer-list li.type-nick:hover .chan-icon {
 	color: var(--aura-text-soft);
 }
+
+/* ── Message d'erreur flottant ───────────────────────────────────────── */
+/* L'original se colle a droite sans largeur maximale : le texte sortait
+   de l'ecran. On le recentre et on le borne. */
+
+#error-msg {
+	left: 50%;
+	right: auto;
+	bottom: 88px;
+	transform: translateX(-50%);
+	max-width: min(560px, calc(100vw - 4rem));
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 11px 14px;
+	margin: 0;
+	border: 1px solid rgba(251, 113, 133, 0.38);
+	border-radius: 10px;
+	background: rgba(38, 14, 22, 0.94);
+	color: #ffd7dd;
+	font-size: 13px;
+	line-height: 1.45;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+	z-index: 40;
+}
+#error-msg a {
+	color: #ffd7dd;
+}
+#error-msg button {
+	color: #ffd7dd;
+	opacity: 0.75;
+	cursor: pointer;
+	flex-shrink: 0;
+	line-height: 1.2;
+}
+#error-msg button:hover {
+	opacity: 1;
+}
