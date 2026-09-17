@@ -24,6 +24,7 @@ import commands from "../commands.js";
 import NickMenu from "./nick-menu.js";
 import WhoisPanel from "./whois-panel.js";
 import ChannelList from "./channel-list.js";
+import { translateError } from "../lib/irc-errors.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -400,7 +401,7 @@ export default class App extends Component {
 		if (config.server.auth === "oauth2" && !connectParams.saslOauthBearer) {
 			if (queryParams.error) {
 				console.error("OAuth 2.0 authorization failed: ", queryParams.error);
-				this.showError("Authentication failed: " + (queryParams.error_description || queryParams.error));
+				this.showError("Authentification refusée : " + (queryParams.error_description || queryParams.error));
 				return;
 			}
 
@@ -450,7 +451,7 @@ export default class App extends Component {
 			serverMetadata = await oauth2.fetchServerMetadata(this.config.oauth2.url);
 		} catch (err) {
 			console.error("Failed to fetch OAuth 2.0 server metadata:", err);
-			this.showError("Failed to fetch OAuth 2.0 server metadata");
+			this.showError("Impossible de récupérer les informations du serveur d'authentification");
 			return;
 		}
 
@@ -1402,7 +1403,7 @@ export default class App extends Component {
 		default:
 			if (irc.isError(msg.command) && msg.command !== irc.ERR_NOMOTD) {
 				let description = msg.params[msg.params.length - 1];
-				this.showError(description);
+				this.showError(translateError(msg.command, description));
 			}
 		}
 
@@ -1458,7 +1459,7 @@ export default class App extends Component {
 				result = await client.fetchHistoryBetween(target.name, from, to, CHATHISTORY_MAX_SIZE);
 			} catch (err) {
 				console.error("Failed to fetch backlog for '" + target.name + "': ", err);
-				this.showError("Failed to fetch backlog for '" + target.name + "'");
+				this.showError("Impossible de récupérer l'historique de " + target.name);
 				return;
 			}
 
@@ -1880,7 +1881,7 @@ export default class App extends Component {
 
 	privmsg(target, text) {
 		if (target === SERVER_BUFFER) {
-			this.showError("Cannot send message in server buffer");
+			this.showError("Ouvre un salon pour envoyer un message");
 			return;
 		}
 
