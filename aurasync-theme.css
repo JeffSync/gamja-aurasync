@@ -257,6 +257,10 @@ button:active {
 
 #chan-browse {
 	display: flex;
+	background: transparent;
+	font-family: inherit;
+	width: calc(100% - 16px);
+	cursor: pointer;
 	align-items: center;
 	justify-content: center;
 	gap: 7px;
@@ -593,4 +597,162 @@ button:active {
 	background: rgba(34, 211, 238, 0.09);
 	color: var(--aura-text-soft);
 	font-size: 12px;
+}
+
+/* ── Panneau « Salons » ──────────────────────────────────────────────── */
+
+.chanlist-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 80;
+	background: rgba(4, 7, 14, 0.55);
+	backdrop-filter: blur(2px);
+}
+
+.chanlist-panel {
+	position: fixed;
+	z-index: 81;
+	left: 50%;
+	top: 12vh;
+	transform: translateX(-50%);
+	width: min(440px, calc(100vw - 2rem));
+	height: 72vh;
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--aura-stroke);
+	border-radius: 12px;
+	background: rgba(12, 18, 32, 0.98);
+	backdrop-filter: blur(16px);
+	box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
+	overflow: hidden;
+}
+
+.chanlist-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 13px 15px;
+	border-bottom: 1px solid var(--aura-stroke);
+}
+.chanlist-title {
+	color: var(--aura-text);
+	font-size: 15px;
+	font-weight: 500;
+}
+.chanlist-close {
+	border: none;
+	background: transparent;
+	color: var(--aura-text-dim);
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+}
+.chanlist-close:hover {
+	color: var(--aura-text);
+	transform: none;
+}
+
+.chanlist-search {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 11px 15px 9px;
+	padding: 7px 11px;
+	border: 1px solid rgba(34, 211, 238, 0.32);
+	border-radius: 8px;
+}
+.chanlist-search svg {
+	width: 15px;
+	height: 15px;
+	flex-shrink: 0;
+	color: var(--aura-text-dim);
+}
+.chanlist-search input {
+	flex: 1;
+	border: none;
+	background: transparent;
+	color: var(--aura-text);
+	font-family: inherit;
+	font-size: 13px;
+	outline: none;
+	height: auto;
+	padding: 0;
+}
+
+.chanlist-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	scrollbar-width: thin;
+	padding-bottom: 10px;
+}
+
+.chanlist-section {
+	padding: 9px 15px 5px;
+	color: var(--aura-text-dim);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+}
+.chanlist-empty {
+	padding: 8px 15px 12px;
+	color: var(--aura-text-dim);
+	font-size: 12px;
+}
+
+.chanlist-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 15px;
+}
+.chanlist-row:hover {
+	background: rgba(34, 211, 238, 0.06);
+}
+.chanlist-row .chan-icon {
+	width: 17px;
+	height: 17px;
+}
+.chanlist-main {
+	flex: 1;
+	min-width: 0;
+}
+.chanlist-name {
+	color: var(--aura-text-soft);
+	font-size: 13px;
+}
+.chanlist-topic {
+	color: var(--aura-text-dim);
+	font-size: 11px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.chanlist-users {
+	flex-shrink: 0;
+	color: var(--aura-text-dim);
+	font-size: 11px;
+}
+.chanlist-tag {
+	flex-shrink: 0;
+	padding: 2px 8px;
+	border: 1px solid rgba(148, 178, 220, 0.2);
+	border-radius: 6px;
+	color: var(--aura-text-dim);
+	font-size: 11px;
+}
+.chanlist-join {
+	flex-shrink: 0;
+	padding: 2px 8px;
+	border: 1px solid rgba(34, 211, 238, 0.32);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--aura-cyan);
+	font-family: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+.chanlist-join:hover {
+	background: rgba(34, 211, 238, 0.12);
+	transform: none;
 }

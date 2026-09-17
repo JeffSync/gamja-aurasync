@@ -174,13 +174,12 @@ export default function BufferList(props) {
 			rel="noopener"
 			title="Retour sur AuraSync"
 		></a>
-		<a
+		<button
 			id="chan-browse"
-			href="https://www.aurasync.fr/tchat"
-			target="_blank"
-			rel="noopener"
-			title="Choisir ses salons sur AuraSync"
-		>Salons</a>
+			type="button"
+			onClick=${props.onOpenChannelList}
+			title="Voir tous les salons"
+		>Salons</button>
 		<div class="chan-groups">
 			${sections}
 		</div>

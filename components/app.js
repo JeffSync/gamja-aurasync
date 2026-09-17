@@ -23,6 +23,7 @@ import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEve
 import commands from "../commands.js";
 import NickMenu from "./nick-menu.js";
 import WhoisPanel from "./whois-panel.js";
+import ChannelList from "./channel-list.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -247,6 +248,9 @@ export default class App extends Component {
 		this.closeNickMenu = this.closeNickMenu.bind(this);
 		this.openWhois = this.openWhois.bind(this);
 		this.closeWhois = this.closeWhois.bind(this);
+		this.openChannelList = this.openChannelList.bind(this);
+		this.closeChannelList = this.closeChannelList.bind(this);
+		this.handleChannelListJoin = this.handleChannelListJoin.bind(this);
 		this.autocomplete = this.autocomplete.bind(this);
 		this.handleBufferScrollTop = this.handleBufferScrollTop.bind(this);
 		this.dismissDialog = this.dismissDialog.bind(this);
@@ -1601,6 +1605,52 @@ export default class App extends Component {
 		this.setState({ whois: null });
 	}
 
+	openChannelList() {
+		this.setState({ chanList: { loading: true, channels: [] } });
+
+		let buf = this.state.buffers.get(this.state.activeBuffer);
+		let client = buf ? this.clients.get(buf.server) : null;
+		if (!client) {
+			this.setState({ chanList: { loading: false, channels: [] } });
+			return;
+		}
+
+		let collected = [];
+		let handler = (event) => {
+			let msg = event.detail.message;
+			if (msg.command === irc.RPL_LIST) {
+				collected.push({
+					name: msg.params[1],
+					users: parseInt(msg.params[2], 10) || 0,
+					topic: msg.params[3] || "",
+				});
+			} else if (msg.command === irc.RPL_LISTEND) {
+				client.removeEventListener("message", handler);
+				this.setState({ chanList: { loading: false, channels: collected } });
+			}
+		};
+		client.addEventListener("message", handler);
+		client.send({ command: "LIST", params: [] });
+
+		/* Filet : si le serveur ne renvoie jamais la fin de liste. */
+		setTimeout(() => {
+			client.removeEventListener("message", handler);
+			this.setState((state) => {
+				if (!state.chanList || !state.chanList.loading) return {};
+				return { chanList: { loading: false, channels: collected } };
+			});
+		}, 8000);
+	}
+
+	closeChannelList() {
+		this.setState({ chanList: null });
+	}
+
+	handleChannelListJoin(name) {
+		this.open(name);
+		this.setState({ chanList: null });
+	}
+
 	handleNickMenuAction(action, nick) {
 		let buf = this.state.buffers.get(this.state.activeBuffer);
 
@@ -2546,6 +2596,25 @@ export default class App extends Component {
 			`;
 		}
 
+		let chanListPanel = null;
+		if (this.state.chanList) {
+			let joined = new Set();
+			for (let b of this.state.buffers.values()) {
+				if (b.type === BufferType.CHANNEL) {
+					joined.add(b.name.toLowerCase());
+				}
+			}
+			chanListPanel = html`
+				<${ChannelList}
+					channels=${this.state.chanList.channels}
+					loading=${this.state.chanList.loading}
+					joinedNames=${joined}
+					onJoin=${this.handleChannelListJoin}
+					onClose=${this.closeChannelList}
+				/>
+			`;
+		}
+
 		let composerReadOnly = false;
 		if (activeServer && activeServer.status !== ServerStatus.REGISTERED) {
 			composerReadOnly = true;
@@ -2572,6 +2641,7 @@ export default class App extends Component {
 					activeBuffer=${this.state.activeBuffer}
 					onBufferClick=${this.handleBufferListClick}
 					onBufferClose=${this.handleBufferListClose}
+					onOpenChannelList=${this.openChannelList}
 				/>
 				<button
 					class="expander"
@@ -2616,6 +2686,7 @@ export default class App extends Component {
 			${error}
 			${nickMenu}
 			${whoisPanel}
+			${chanListPanel}
 		`;
 
 		return html`
