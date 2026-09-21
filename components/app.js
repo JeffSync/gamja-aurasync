@@ -242,6 +242,8 @@ export default class App extends Component {
 		this.handleBufferListClose = this.handleBufferListClose.bind(this);
 		this.toggleBufferList = this.toggleBufferList.bind(this);
 		this.toggleMemberList = this.toggleMemberList.bind(this);
+		this.closeDrawers = this.closeDrawers.bind(this);
+		this.handlePopState = this.handlePopState.bind(this);
 		this.handleComposerSubmit = this.handleComposerSubmit.bind(this);
 		this.handleChannelClick = this.handleChannelClick.bind(this);
 		this.handleNickClick = this.handleNickClick.bind(this);
@@ -960,9 +962,9 @@ export default class App extends Component {
 		});
 
 		this.createBuffer(serverID, SERVER_BUFFER);
-		if (!this.state.activeBuffer) {
-			this.switchBuffer({ server: serverID, name: SERVER_BUFFER });
-		}
+		// On ne bascule jamais sur le tampon serveur : page technique que
+		// le membre n'a pas a voir. Les salons arrivent juste apres, via
+		// switchToChannel.
 
 		if (params.autojoin.length > 0) {
 			this.switchToChannel = params.autojoin[0];
@@ -1274,6 +1276,10 @@ export default class App extends Component {
 			if (channel === this.switchToChannel) {
 				this.switchBuffer({ server: serverID, name: channel });
 				this.switchToChannel = null;
+			} else if (client.isMyNick(msg.prefix.name) && !this.state.activeBuffer) {
+				// Application autonome : aucun salon demande par URL, on
+				// ouvre le premier salon restaure par le store.
+				this.switchBuffer({ server: serverID, name: channel });
 			}
 			break;
 		case "BOUNCER":
@@ -1937,6 +1943,20 @@ export default class App extends Component {
 		});
 	}
 
+	closeDrawers() {
+		this.setState((state) => ({
+			openPanels: { ...state.openPanels, bufferList: false, memberList: false },
+		}));
+	}
+
+	handlePopState() {
+		/* Le bouton retour ferme un tiroir avant de naviguer. */
+		if (this.state.openPanels.bufferList || this.state.openPanels.memberList) {
+			this.closeDrawers();
+			window.history.pushState(null, "");
+		}
+	}
+
 	toggleMemberList() {
 		this.setState((state) => {
 			let openPanels = {
@@ -2340,12 +2360,15 @@ export default class App extends Component {
 		setupKeybindings(this);
 		window.addEventListener("focus", this.handleWindowFocus);
 		window.addEventListener("hashchange", this.handleWindowHashChange);
+		window.history.pushState(null, "");
+		window.addEventListener("popstate", this.handlePopState);
 	}
 
 	componentWillUnmount() {
 		document.title = this.baseTitle;
 		window.removeEventListener("focus", this.handleWindowFocus);
 		window.removeEventListener("hashchange", this.handleWindowHashChange);
+		window.removeEventListener("popstate", this.handlePopState);
 	}
 
 	render() {
@@ -2405,6 +2428,9 @@ export default class App extends Component {
 						user=${activeUser}
 						bouncerNetwork=${activeBouncerNetwork}
 						onChannelClick=${this.handleChannelClick}
+						onToggleBufferList=${this.toggleBufferList}
+						onToggleMemberList=${this.toggleMemberList}
+						memberCount=${activeBuffer && activeBuffer.members ? activeBuffer.members.size : undefined}
 							canPart=${Array.from(this.state.buffers.values()).filter((b) => b.type === BufferType.CHANNEL).length > 1}
 						onClose=${() => this.close(activeBuffer)}
 						onJoin=${() => this.handleJoinClick(activeBuffer)}
@@ -2624,13 +2650,32 @@ export default class App extends Component {
 		let commandOnly = false;
 		let privmsgMaxLen;
 		if (activeBuffer && activeBuffer.type === BufferType.SERVER) {
+			/* Page technique : on bascule sur un salon des qu'il y en a un. */
+			let firstChannel = null;
+			for (let b of this.state.buffers.values()) {
+				if (b.type === BufferType.CHANNEL) {
+					firstChannel = b.id;
+					break;
+				}
+			}
+			if (firstChannel) {
+				queueMicrotask(() => this.switchBuffer(firstChannel));
+			}
 			commandOnly = true;
 		} else if (activeBuffer) {
 			let client = this.clients.get(activeBuffer.server);
 			privmsgMaxLen = irc.getMaxPrivmsgLen(client.isupport, client.nick, activeBuffer.name);
 		}
 
+		let drawerBackdrop = null;
+		if (this.state.openPanels.bufferList || this.state.openPanels.memberList) {
+			drawerBackdrop = html`
+				<div class="drawer-backdrop" onClick=${this.closeDrawers}></div>
+			`;
+		}
+
 		let app = html`
+			${drawerBackdrop}
 			<section
 				id="buffer-list"
 				class=${this.state.openPanels.bufferList ? "expand" : ""}

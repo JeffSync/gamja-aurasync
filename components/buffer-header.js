@@ -167,9 +167,49 @@ export default function BufferHeader(props) {
 		name = getServerName(props.server, props.bouncerNetwork);
 	}
 
+	/* Commandes mobiles : ouvrent les tiroirs. Masquees sur ordinateur. */
+	let drawerToggles = html`
+		<button
+			class="hdr-toggle hdr-toggle-left"
+			type="button"
+			onClick=${props.onToggleBufferList}
+			aria-label="Salons"
+			title="Salons"
+		>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+				stroke-width="2" stroke-linecap="round" aria-hidden="true">
+				<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
+			</svg>
+		</button>
+	`;
+
+	let memberToggle = null;
+	if (props.buffer.type === BufferType.CHANNEL && props.memberCount !== undefined) {
+		memberToggle = html`
+			<button
+				class="hdr-toggle hdr-toggle-right"
+				type="button"
+				onClick=${props.onToggleMemberList}
+				aria-label="Membres du salon"
+				title="Membres du salon"
+			>
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+					stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<path d="M9 11.5a3 3 0 100-6 3 3 0 000 6z"/>
+					<path d="M3.5 19c0-3 2.4-4.8 5.5-4.8s5.5 1.8 5.5 4.8"/>
+					<path d="M16.5 10.8a2.6 2.6 0 100-5.2"/>
+					<path d="M16.8 14.9c2.4.4 3.9 2 3.9 4.6"/>
+				</svg>
+				<span>${props.memberCount}</span>
+			</button>
+		`;
+	}
+
 	return html`
+		${drawerToggles}
 		<div class="title">${name}</div>
 		${description ? html`<div class="description">${description}</div>` : null}
+		${memberToggle}
 		<div class="actions">${actions}</div>
 	`;
 }

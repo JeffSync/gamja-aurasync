@@ -756,3 +756,210 @@ button:active {
 	background: rgba(34, 211, 238, 0.12);
 	transform: none;
 }
+
+/* ── Mobile ──────────────────────────────────────────────────────────── */
+/* Gamja replie ses colonnes en mettant #buffer-list ul a width: 0. Notre
+   refonte a remplace ce ul par .chan-groups : la regle d'origine ne
+   s'applique plus a rien, d'ou une barre laterale permanente sur mobile.
+   On retablit le repli en ciblant nos propres elements, et on superpose
+   les tiroirs au lieu de pousser la conversation. */
+
+/* Commandes de tiroir : masquees sur ordinateur. */
+.hdr-toggle {
+	display: none;
+}
+
+@media (max-width: 767px) {
+
+	/* ── Tiroir des salons ─────────────────────────────────────────── */
+
+	#buffer-list .chan-groups,
+	#buffer-list #chan-browse,
+	#buffer-list #aurasync-logo {
+		display: none;
+	}
+	#buffer-list {
+		width: 0;
+		border: none;
+	}
+	#buffer-list.expand {
+		position: fixed;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		width: 82vw;
+		max-width: 320px;
+		z-index: 90;
+		border-right: 1px solid var(--aura-stroke);
+		box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+	}
+	#buffer-list.expand .chan-groups,
+	#buffer-list.expand #chan-browse {
+		display: flex;
+	}
+	#buffer-list.expand .chan-groups {
+		display: block;
+	}
+	#buffer-list.expand #aurasync-logo {
+		display: block;
+		height: 54px;
+		background-size: contain;
+	}
+
+	/* ── Tiroir des membres ────────────────────────────────────────── */
+
+	#member-list {
+		width: 0;
+		border: none;
+	}
+	#member-list.expand {
+		position: fixed;
+		top: 0;
+		bottom: 0;
+		right: 0;
+		left: auto;
+		width: 72vw;
+		max-width: 280px;
+		z-index: 90;
+		border-left: 1px solid var(--aura-stroke);
+		box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+	}
+	#member-list.expand > section {
+		width: 100%;
+	}
+
+	/* Poignees d'origine : remplacees par les commandes de l'en-tete. */
+	.expander {
+		display: none !important;
+	}
+
+	/* ── En-tete compact ───────────────────────────────────────────── */
+
+	#buffer-header {
+		grid-template-columns: auto 1fr auto auto;
+		grid-template-rows: auto auto;
+		align-items: center;
+		column-gap: 2px;
+	}
+	#buffer-header .title {
+		display: block;
+		grid-row: 1;
+		grid-column: 2;
+		padding: 10px 4px;
+		font-size: 14px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	#buffer-header .description {
+		grid-row: 2;
+		grid-column: 1 / -1;
+		padding: 7px 12px;
+		font-size: 12px;
+		line-height: 1.4;
+		max-height: 4.3em;
+		overflow-y: auto;
+	}
+	/* Topic deplie au tap (focus). */
+	#buffer-header .description:focus,
+	#buffer-header .description:active {
+		max-height: 40vh;
+		overflow-y: auto;
+	}
+	#buffer-header .actions {
+		grid-row: 1;
+		grid-column: 4;
+	}
+	#buffer-header .actions button {
+		padding: 5px 9px;
+		font-size: 12px;
+	}
+
+	.hdr-toggle {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 8px 9px;
+		border: none;
+		background: transparent;
+		color: var(--aura-cyan);
+		font-family: inherit;
+		font-size: 13px;
+		cursor: pointer;
+	}
+	.hdr-toggle:hover,
+	.hdr-toggle:active {
+		background: rgba(34, 211, 238, 0.10);
+		transform: none;
+	}
+	.hdr-toggle svg {
+		width: 21px;
+		height: 21px;
+	}
+	.hdr-toggle-left {
+		grid-row: 1;
+		grid-column: 1;
+	}
+	.hdr-toggle-right {
+		grid-row: 1;
+		grid-column: 3;
+	}
+
+	/* ── Densite generale ──────────────────────────────────────────── */
+
+	#composer input[type="text"] {
+		height: 48px;
+		font-size: 16px;
+	}
+	#buffer .logline,
+	#buffer-list li a,
+	#member-list li a {
+		font-size: 13.5px;
+	}
+	.chanlist-panel,
+	.whois-panel {
+		width: calc(100vw - 1.5rem);
+		max-width: none;
+	}
+	.nick-menu {
+		width: min(260px, calc(100vw - 2rem));
+	}
+}
+
+/* Fond cliquable des tiroirs mobiles : ferme au tap a cote. */
+.drawer-backdrop {
+	display: none;
+}
+@media (max-width: 767px) {
+	.drawer-backdrop {
+		display: block;
+		position: fixed;
+		inset: 0;
+		z-index: 85;
+		background: rgba(4, 7, 14, 0.5);
+	}
+}
+
+/* Mobile : menus au-dessus des tiroirs, bouton Partir eloigne des membres. */
+@media (max-width: 767px) {
+	.nick-menu {
+		z-index: 95;
+	}
+	.whois-panel {
+		z-index: 96;
+	}
+	#buffer-header {
+		grid-template-columns: auto auto 1fr auto;
+	}
+	#buffer-header .title {
+		grid-column: 2;
+	}
+	#buffer-header .actions {
+		grid-row: 1;
+		grid-column: 3;
+		justify-self: start;
+	}
+	.hdr-toggle-right {
+		grid-column: 4;
+	}
+}
