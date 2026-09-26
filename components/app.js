@@ -339,9 +339,12 @@ export default class App extends Component {
 
 		let autoconnect = store.autoconnect.load();
 		if (autoconnect) {
-			// On garde le saslPlain de la config.json (frais, credentials a jour),
-			// il ne doit jamais etre ecrase par une valeur perimee du localStorage.
+			// On garde le saslPlain ET le nick de la config.json : ils sont
+			// frais et lies a la session en cours. Une valeur perimee du
+			// localStorage ferait se connecter le compte A sous le pseudo B
+			// — usurpation d'identite jusqu'a ce que NickServ renomme.
 			let freshSaslPlain = connectParams.saslPlain;
+			let freshNick = connectParams.nick;
 			connectParams = {
 				...connectParams,
 				...autoconnect,
@@ -350,6 +353,14 @@ export default class App extends Component {
 			};
 			if (freshSaslPlain) {
 				connectParams.saslPlain = freshSaslPlain;
+			}
+			if (freshNick) {
+				connectParams.nick = freshNick;
+			}
+			// Coherence : le pseudo doit toujours etre celui du compte
+			// authentifie. Si les deux divergent, le compte fait foi.
+			if (connectParams.saslPlain && connectParams.saslPlain.username) {
+				connectParams.nick = connectParams.saslPlain.username;
 			}
 		}
 
