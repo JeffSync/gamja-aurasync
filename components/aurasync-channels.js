@@ -1,9 +1,19 @@
 /*
  * Metadonnees des salons AuraSync : categorie, icone, libelle.
  *
- * Source de verite unique pour la barre laterale du t'Chat. Le nom technique
- * du salon reste en minuscules sans accent (contrainte IRC) ; le libelle
- * affiche est derive ici.
+ * Source de verite unique pour la barre laterale du t'Chat.
+ *
+ * Les CLES de CHANNELS restent en minuscules SANS ACCENT et ne changent
+ * jamais : la recherche passe par normalizeKey(), qui retire les
+ * diacritiques. Un salon peut donc etre renomme cote serveur (#cinema ->
+ * #cinéma) sans toucher a ce fichier. Ne jamais accentuer une cle : ce
+ * serait refaire l'erreur de D-021, ou une chaine d'affichage servait
+ * d'identifiant technique.
+ *
+ * Le libelle affiche est donne par `label`. Le repli automatique (majuscule
+ * sur chaque segment) se trompe des qu'un nom porte un accent ou une
+ * particule : "Ile-De-France" au lieu de "Île-de-France". Tout salon dans
+ * ce cas doit avoir un `label` explicite.
  *
  * Les icones suivent le style des AuraMojis du site : viewBox 24, trait de
  * 1.9, extremites arrondies, pas de remplissage.
@@ -70,53 +80,86 @@ const ICONS = {
 	hash: ["M9.2 4.2L7.4 19.8", "M16.6 4.2l-1.8 15.6", "M4.6 9h15", "M4 15h15"],
 };
 
-/* Salon technique -> categorie + icone. */
+/* Salon technique (cle SANS ACCENT) -> categorie + icone + libelle. */
 export const CHANNELS = {
 	administration: { cat: "gestion", icon: "shield" },
-	equipe: { cat: "gestion", icon: "users" },
+	equipe: { cat: "gestion", icon: "users", label: "Équipe" },
 	services: { cat: "gestion", icon: "terminal" },
 
 	aurasync: { cat: "principaux", icon: "home", label: "AuraSync", rank: 1 },
 	aide: { cat: "principaux", icon: "lifebuoy", rank: 2 },
 	abus: { cat: "principaux", icon: "flag", rank: 3 },
 
-	actualite: { cat: "thematiques", icon: "news" },
+	actualite: { cat: "thematiques", icon: "news", label: "Actualité" },
 	politique: { cat: "thematiques", icon: "columns" },
 	informatique: { cat: "thematiques", icon: "desktop" },
 	musique: { cat: "thematiques", icon: "music" },
-	cinema: { cat: "thematiques", icon: "movie" },
+	cinema: { cat: "thematiques", icon: "movie", label: "Cinéma" },
 	jeux: { cat: "thematiques", icon: "gamepad" },
 	sports: { cat: "thematiques", icon: "trophy" },
 	addictions: { cat: "thematiques", icon: "hands" },
-	spiritualite: { cat: "thematiques", icon: "spark" },
+	spiritualite: { cat: "thematiques", icon: "spark", label: "Spiritualité" },
 };
 
-/* Les treize regions partagent la meme icone. */
-for (let r of [
-	"auvergne-rhone-alpes", "bourgogne-franche-comte", "bretagne",
-	"centre-val-de-loire", "corse", "grand-est", "hauts-de-france",
-	"ile-de-france", "normandie", "nouvelle-aquitaine", "occitanie",
-	"pays-de-la-loire", "provence-alpes-cote-dazur",
-]) {
-	CHANNELS[r] = { cat: "regions", icon: "pin" };
+/*
+ * Les treize regions partagent la meme icone. Les libelles suivent
+ * l'orthographe officielle : "Grand Est" et "Pays de la Loire" s'ecrivent
+ * sans trait d'union, "Centre-Val de Loire" n'en porte qu'un.
+ */
+const REGIONS = {
+	"auvergne-rhone-alpes": "Auvergne-Rhône-Alpes",
+	"bourgogne-franche-comte": "Bourgogne-Franche-Comté",
+	"bretagne": "Bretagne",
+	"centre-val-de-loire": "Centre-Val de Loire",
+	"corse": "Corse",
+	"grand-est": "Grand Est",
+	"hauts-de-france": "Hauts-de-France",
+	"ile-de-france": "Île-de-France",
+	"normandie": "Normandie",
+	"nouvelle-aquitaine": "Nouvelle-Aquitaine",
+	"occitanie": "Occitanie",
+	"pays-de-la-loire": "Pays de la Loire",
+	"provence-alpes-cote-dazur": "Provence-Alpes-Côte d'Azur",
+	/* Variante avec tiret : #provence-alpes-côte-d-azur */
+	"provence-alpes-cote-d-azur": "Provence-Alpes-Côte d'Azur",
+};
+
+for (let [key, label] of Object.entries(REGIONS)) {
+	CHANNELS[key] = { cat: "regions", icon: "pin", label };
 }
 
-/* Nom technique -> libelle affiche : majuscule sur chaque segment. */
+/*
+ * Nom de salon -> cle de CHANNELS.
+ *
+ * Retire le prefixe, passe en minuscules, puis supprime les diacritiques
+ * (NFD isole les accents comme caracteres combinants U+0300-U+036F, qu'on
+ * jette). "#Île-de-France" et "#ile-de-france" donnent donc la meme cle.
+ */
+function normalizeKey(name) {
+	return name
+		.replace(/^[#&]+/, "")
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "");
+}
+
+/* Nom technique -> libelle affiche. */
 export function channelLabel(name) {
-	let bare = name.replace(/^[#&]+/, "");
-	let meta = CHANNELS[bare.toLowerCase()];
+	let meta = CHANNELS[normalizeKey(name)];
 	if (meta && meta.label) {
 		return meta.label;
 	}
-	return bare
+	/* Repli : majuscule sur chaque segment. Approximatif — preferer un
+	 * `label` explicite des qu'un accent ou une particule est en jeu. */
+	return name
+		.replace(/^[#&]+/, "")
 		.split("-")
 		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
 		.join("-");
 }
 
 export function channelMeta(name) {
-	let bare = name.replace(/^[#&]+/, "").toLowerCase();
-	return CHANNELS[bare] || null;
+	return CHANNELS[normalizeKey(name)] || null;
 }
 
 export function channelIcon(iconName) {
