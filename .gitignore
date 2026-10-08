@@ -4,3 +4,7 @@ node_modules
 .parcel-cache
 /dist
 index.html.bak
+
+# Sauvegardes locales avant modification (convention .bak-<motif>).
+# L'historique git joue deja ce role : git show <commit>^:<fichier>
+*.bak-*
