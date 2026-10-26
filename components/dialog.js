@@ -51,7 +51,7 @@ export default class Dialog extends Component {
 				<div class="dialog-body" ref=${this.body}>
 					<div class="dialog-header">
 						<h2>${this.props.title}</h2>
-						<button class="dialog-close" onClick=${this.handleCloseClick} title="Close">×</button>
+						<button type="button" class="dialog-close" onClick=${this.handleCloseClick} title="Fermer" aria-label="Fermer">×</button>
 					</div>
 					${this.props.children}
 				</div>
