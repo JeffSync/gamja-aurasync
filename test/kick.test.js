@@ -50,11 +50,11 @@ test("onglet suivant : aucun salon restant", () => {
 	assert.equal(nextBuffer([], 7, cm), null);
 });
 
-test("bannière sans raison : pas de « (X) »", () => {
+test("bannière sans raison : « motif non précisé », jamais « (Jeff) » (D-058)", () => {
 	/* Sans raison, UnrealIRCd met le pseudo de l'auteur. */
-	assert.equal(kickBanner("#aide", "Jeff", "Jeff"), "Tu as été expulsé(e) de #aide par Jeff.");
-	assert.equal(kickBanner("#aide", "Jeff", ""), "Tu as été expulsé(e) de #aide par Jeff.");
-	assert.equal(kickBanner("#aide", "Jeff", undefined), "Tu as été expulsé(e) de #aide par Jeff.");
+	assert.equal(kickBanner("#aide", "Jeff", "Jeff"), "Tu as été expulsé(e) de #aide par Jeff (motif non précisé).");
+	assert.equal(kickBanner("#aide", "Jeff", ""), "Tu as été expulsé(e) de #aide par Jeff (motif non précisé).");
+	assert.equal(kickBanner("#aide", "Jeff", undefined), "Tu as été expulsé(e) de #aide par Jeff (motif non précisé).");
 });
 
 test("bannière avec raison traduite", () => {
@@ -64,12 +64,12 @@ test("bannière avec raison traduite", () => {
 		kickBanner("#Équipe", "ChanServ", "You are not permitted to be on this channel."),
 		"Tu as été expulsé(e) de #Équipe par ChanServ (salon réservé).",
 	);
-	/* Texte anglais d'un service inconnu de la table : rien plutot que l'anglais. */
-	assert.equal(kickBanner("#aide", "ChanServ", "Some new English reason"), "Tu as été expulsé(e) de #aide par ChanServ.");
+	/* Texte anglais d'un service inconnu de la table : jamais l'anglais. */
+	assert.equal(kickBanner("#aide", "ChanServ", "Some new English reason"), "Tu as été expulsé(e) de #aide par ChanServ (motif non précisé).");
 });
 
 test("bannière : !kb sans motif via AuraBot nomme le vrai auteur", () => {
-	assert.equal(kickBanner("#AuraSync", "AuraBot", "Requested (Jeff)"), "Tu as été expulsé(e) de #AuraSync par Jeff.");
+	assert.equal(kickBanner("#AuraSync", "AuraBot", "Requested (Jeff)"), "Tu as été expulsé(e) de #AuraSync par Jeff (motif non précisé).");
 	assert.equal(kickBanner("#AuraSync", "AuraBot", "calme-toi (Jeff)"), "Tu as été expulsé(e) de #AuraSync par Jeff (calme-toi).");
 	assert.equal(kickBanner("#AuraSync", "AuraBot", "Turn caps lock OFF!"), "Tu as été expulsé(e) de #AuraSync par AuraBot (trop de majuscules).");
 });

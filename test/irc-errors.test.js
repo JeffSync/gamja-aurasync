@@ -10,7 +10,7 @@ import { test, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import {
 	translateError, translateClosing, translateKickReason, analyseKick, translateClientError,
-	isRefusal, REPLI_ERREUR, REPLI_FIN, MESSAGES, MOTIFS as TABLE,
+	isRefusal, REPLI_ERREUR, REPLI_FIN, MOTIF_NON_PRECISE as MOTIF, CONNEXION_PERDUE, MESSAGES, MOTIFS as TABLE,
 } from "../lib/irc-errors.js";
 
 let journal;
@@ -62,17 +62,17 @@ const MOTIFS = [
 ];
 
 const FINS = [
-	["Closing Link: Kahen[1.2.3.4] (Killed by Jeff (spam répété))", "Tu as été déconnecté(e) par l'équipe du t'Chat : spam répété"],
+	["Closing Link: Kahen[1.2.3.4] (Killed by Jeff (spam répété))", "Tu as été déconnecté(e) par l'équipe : spam répété"],
 	["Closing Link: Kahen[1.2.3.4] (Killed by NickServ (Services nickname-enforcer kill))", "Tu as été déconnecté(e) : ce pseudo appartient à un autre compte."],
 	["Closing Link: Kahen[1.2.3.4] (Killed by OperServ (Q-Lined: pseudo réservé))", "Tu as été déconnecté(e) : ce pseudo est réservé."],
 	["Closing Link: Kahen[1.2.3.4] (Killed by OperServ (Session limit exceeded))", "Trop de connexions simultanées depuis ton adresse."],
 	["Closing Link: Kahen[1.2.3.4] (Killed by OperServ (Defcon session limit exceeded))", "Trop de connexions simultanées depuis ton adresse."],
 	["Closing Link: Kahen[1.2.3.4] (Killed by irc.aurasync.fr (Too many invalid passwords))", "Trop de tentatives d'identification."],
-	["Closing Link: Kahen[1.2.3.4] (Killed (raison masquée))", "Tu as été déconnecté(e) par l'équipe du t'Chat."],
-	["Closing Link: Kahen[1.2.3.4] (Killed by OperServ (Some unknown service reason))", "Tu as été déconnecté(e) par l'équipe du t'Chat."],
+	["Closing Link: Kahen[1.2.3.4] (Killed (raison masquée))", "Tu as été déconnecté(e) par l'équipe : motif non précisé"],
+	["Closing Link: Kahen[1.2.3.4] (Killed by OperServ (Some unknown service reason))", "Tu as été déconnecté(e) par l'équipe : motif non précisé"],
 	["Closing Link: Kahen[1.2.3.4] (You are not welcome on this network. G-Lined: spam. Email abuse@example.org for more information. [ID: 1])", "Ton accès au t'Chat est refusé."],
 	["Closing Link: Kahen[1.2.3.4] (G-Lined)", "Ton accès au t'Chat est refusé."],
-	["Closing Link: Kahen[1.2.3.4] (Ping timeout: 180 seconds)", "La connexion au t'Chat a été perdue. Reconnexion…"],
+	["Closing Link: Kahen[1.2.3.4] (Ping timeout: 180 seconds)", CONNEXION_PERDUE],
 	["Closing Link: Kahen[1.2.3.4] (Excess Flood)", "Tu as été déconnecté(e) : trop de messages envoyés d'un coup."],
 	["Closing Link: Kahen[1.2.3.4] (Max SendQ exceeded)", "Tu as été déconnecté(e) : trop de messages envoyés d'un coup."],
 	["Closing Link: [1.2.3.4] (Throttled: Reconnecting too fast - Email abuse@example.org for more information.)", "Trop de connexions depuis ton adresse. Patiente une minute avant de revenir."],
@@ -162,16 +162,16 @@ test("repli des fins de connexion", () => {
 });
 
 test("raisons de KICK", () => {
-	assert.equal(translateKickReason("", "Jeff"), "");
-	assert.equal(translateKickReason(undefined, "Jeff"), "");
-	assert.equal(translateKickReason("Jeff", "Jeff"), "", "sans raison, le serveur met le pseudo de l'auteur");
+	assert.equal(translateKickReason("", "Jeff"), MOTIF);
+	assert.equal(translateKickReason(undefined, "Jeff"), MOTIF);
+	assert.equal(translateKickReason("Jeff", "Jeff"), MOTIF, "sans raison, le serveur met le pseudo de l'auteur");
 	assert.equal(translateKickReason("Flooding (Limit is 7 lines per 15 seconds)", "irc.aurasync.fr"), "trop de messages en peu de temps");
 	assert.equal(translateKickReason("Flooding (Your last message is too similar to previous ones)", "irc.aurasync.fr"), "messages répétés");
 	assert.equal(translateKickReason("You are not permitted to be on this channel.", "ChanServ"), "salon réservé");
 	assert.equal(translateKickReason("User has been banned from the channel", "ChanServ"), "banni(e) du salon");
-	assert.equal(translateKickReason("Requested", "ChanServ"), "");
-	assert.equal(translateKickReason("Some new Anope reason", "ChanServ"), "");
-	assert.equal(translateKickReason("Some new server reason", "irc.aurasync.fr"), "");
+	assert.equal(translateKickReason("Requested", "ChanServ"), MOTIF);
+	assert.equal(translateKickReason("Some new Anope reason", "ChanServ"), MOTIF);
+	assert.equal(translateKickReason("Some new server reason", "irc.aurasync.fr"), MOTIF);
 	assert.equal(translateKickReason("calme-toi", "Jeff"), "calme-toi", "une raison ecrite par l'equipe reste");
 });
 
@@ -202,14 +202,14 @@ test("KICK : raisons par défaut d'Anope traduites, auteur inchangé", () => {
 
 test("KICK signé (SIGNKICK) : le vrai auteur est le pseudo de la signature", () => {
 	/* !kb sans motif via AuraBot : signkickformat « %m (%n) ». */
-	assert.deepEqual(analyseKick("Requested (Jeff)", "AuraBot"), { auteur: "Jeff", raison: "" });
-	assert.deepEqual(analyseKick("Requested (Jeff)", "ChanServ"), { auteur: "Jeff", raison: "" });
+	assert.deepEqual(analyseKick("Requested (Jeff)", "AuraBot"), { auteur: "Jeff", raison: MOTIF });
+	assert.deepEqual(analyseKick("Requested (Jeff)", "ChanServ"), { auteur: "Jeff", raison: MOTIF });
 	/* Motif ecrit par l'equipe, parentheses comprises. */
 	assert.deepEqual(analyseKick("calme-toi (Jeff)", "AuraBot"), { auteur: "Jeff", raison: "calme-toi" });
 	assert.deepEqual(analyseKick("spam (pub) (Jeff)", "AuraBot"), { auteur: "Jeff", raison: "spam (pub)" });
 	/* Expulsion par masque, signee ou non : le masque disparait. */
-	assert.deepEqual(analyseKick("Requested (Matches *!*@1.2.3.4) (Jeff)", "AuraBot"), { auteur: "Jeff", raison: "" });
-	assert.deepEqual(analyseKick("Requested (Matches *!*@1.2.3.4)", "AuraBot"), { auteur: "AuraBot", raison: "" });
+	assert.deepEqual(analyseKick("Requested (Matches *!*@1.2.3.4) (Jeff)", "AuraBot"), { auteur: "Jeff", raison: MOTIF });
+	assert.deepEqual(analyseKick("Requested (Matches *!*@1.2.3.4)", "AuraBot"), { auteur: "AuraBot", raison: MOTIF });
 	assert.deepEqual(analyseKick("dehors (Matches *!*@1.2.3.4) (Jeff)", "AuraBot"), { auteur: "Jeff", raison: "dehors" });
 	/* OperServ KICK : « Jeff (motif) ». */
 	assert.deepEqual(analyseKick("Jeff (calme-toi)", "OperServ"), { auteur: "Jeff", raison: "calme-toi" });
@@ -223,18 +223,18 @@ test("KICK signé (SIGNKICK) : le vrai auteur est le pseudo de la signature", ()
 });
 
 test("KICK : AuraBot est un service, son anglais inconnu ne s'affiche pas", () => {
-	assert.deepEqual(analyseKick("Some new BotServ reason!", "AuraBot"), { auteur: "AuraBot", raison: "" });
+	assert.deepEqual(analyseKick("Some new BotServ reason!", "AuraBot"), { auteur: "AuraBot", raison: MOTIF });
 	assert.equal(journal.mock.callCount(), 1);
 });
 
 test("KICK : un membre de l'équipe en direct n'est pas « désigné » par ses parenthèses", () => {
 	assert.deepEqual(analyseKick("calme-toi (Kahen)", "Jeff"), { auteur: "Jeff", raison: "calme-toi (Kahen)" });
-	assert.deepEqual(analyseKick("Jeff", "Jeff"), { auteur: "Jeff", raison: "" });
+	assert.deepEqual(analyseKick("Jeff", "Jeff"), { auteur: "Jeff", raison: MOTIF });
 });
 
 test("erreurs du client : IRCError traduite, autres erreurs inchangees", () => {
 	let msg = { command: "ERROR", params: ["Closing Link: Kahen[1.2.3.4] (Ping timeout: 180 seconds)"] };
-	assert.equal(translateClientError({ msg }), "La connexion au t'Chat a été perdue. Reconnexion…");
+	assert.equal(translateClientError({ msg }), CONNEXION_PERDUE);
 	assert.equal(translateClientError({ msg: { command: "904", params: ["Kahen", "SASL authentication failed"] } }), MESSAGES["904"]);
 	assert.equal(translateClientError({ msg: { command: "433", params: [] } }), MESSAGES["433"]);
 	let autre = new Error("Erreur de connexion");

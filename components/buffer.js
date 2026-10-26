@@ -208,12 +208,12 @@ class LogLine extends Component {
 			`;
 			break;
 		case "KICK":
-			// Raison traduite a l'affichage (D-056) ; parentheses seulement si
-			// elle existe. Sans raison, le serveur met le pseudo de l'auteur.
-			// Un KICK signe par Anope (« Requested (Jeff) ») nomme Jeff.
+			// Raison traduite a l'affichage (D-056), « motif non précisé » a
+			// defaut (D-058). Un KICK signe par Anope (« Requested (Jeff) »)
+			// nomme Jeff.
 			let kick = analyseKick(msg.params[2], msg.prefix.name);
 			content = html`
-				${createNick(msg.params[1])} a été expulsé(e) par ${createNick(kick.auteur)}${kick.raison ? ` (${kick.raison})` : ""}
+				${createNick(msg.params[1])} a été expulsé(e) par ${createNick(kick.auteur)} (${kick.raison})
 			`;
 			break;
 		case "MODE":

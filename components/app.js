@@ -16,6 +16,7 @@ import SwitcherForm from "./switcher-form.js";
 import Composer from "./composer.js";
 import ScrollManager from "./scroll-manager.js";
 import Dialog from "./dialog.js";
+import MotifForm from "./motif-form.js";
 import { html, Component, createRef } from "../lib/index.js";
 import { strip as stripANSI } from "../lib/ansi.js";
 import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEventsDisplayMode, State, getServerName, receiptFromMessage, isReceiptBefore, isMessageBeforeReceipt, SettingsContext } from "../state.js";
@@ -25,6 +26,7 @@ import WhoisPanel from "./whois-panel.js";
 import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner, withoutChannel } from "../lib/kick.js";
+import { commandesSanction, demandeMotif } from "../lib/connexion.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -207,6 +209,8 @@ export default class App extends Component {
 		dialog: null,
 		dialogData: null,
 		error: null,
+		/* Fin de connexion sans reconnexion : { message, bouton }. */
+		fin: null,
 		openPanels: {
 			bufferList: false,
 			memberList: false,
@@ -248,6 +252,9 @@ export default class App extends Component {
 		this.handleNickClick = this.handleNickClick.bind(this);
 		this.handleNickMenuAction = this.handleNickMenuAction.bind(this);
 		this.closeNickMenu = this.closeNickMenu.bind(this);
+		this.handlePageHide = this.handlePageHide.bind(this);
+		this.handlePageShow = this.handlePageShow.bind(this);
+		this.handleMotifSubmit = this.handleMotifSubmit.bind(this);
 		this.openWhois = this.openWhois.bind(this);
 		this.closeWhois = this.closeWhois.bind(this);
 		this.openChannelList = this.openChannelList.bind(this);
@@ -962,6 +969,13 @@ export default class App extends Component {
 
 		client.addEventListener("message", (event) => {
 			this.handleMessage(serverID, event.detail.message);
+		});
+
+		// Le serveur a mis fin a la connexion (kill, ban reseau…) ou le pseudo
+		// reste pris : ecran de fin a la place du t'Chat, sans reconnexion.
+		client.addEventListener("fin", (event) => {
+			let { message, bouton } = event.detail;
+			this.setState({ fin: { message: displayError(message), bouton } });
 		});
 
 		client.addEventListener("error", (event) => {
@@ -1733,6 +1747,12 @@ export default class App extends Component {
 			return;
 		}
 
+		// D-058 : expulser ou bannir demande un motif, que le membre verra.
+		if (demandeMotif(action)) {
+			this.openDialog("motif", { action, nick, channel: buf.name, server: buf.server });
+			return;
+		}
+
 		switch (action) {
 		case "voice":
 			client.send({ command: "MODE", params: [buf.name, "+v", nick] });
@@ -1749,14 +1769,20 @@ export default class App extends Component {
 		case "mute":
 			client.send({ command: "MODE", params: [buf.name, "+b", "~q:" + nick + "!*@*"] });
 			break;
-		case "kick":
-			client.send({ command: "KICK", params: [buf.name, nick] });
-			break;
-		case "ban":
-			client.send({ command: "MODE", params: [buf.name, "+b", nick + "!*@*"] });
-			client.send({ command: "KICK", params: [buf.name, nick] });
-			break;
 		}
+	}
+
+	handleMotifSubmit(motif) {
+		let { action, nick, channel, server } = this.state.dialogData;
+		let client = this.clients.get(server);
+		let msgs = commandesSanction(action, channel, nick, motif);
+		if (!client || !msgs) {
+			return;
+		}
+		for (let msg of msgs) {
+			client.send(msg);
+		}
+		this.dismissDialog();
 	}
 
 	whoUserBuffer(target, serverID) {
@@ -2402,6 +2428,25 @@ export default class App extends Component {
 		window.addEventListener("hashchange", this.handleWindowHashChange);
 		window.history.pushState(null, "");
 		window.addEventListener("popstate", this.handlePopState);
+		window.addEventListener("pagehide", this.handlePageHide);
+		window.addEventListener("pageshow", this.handlePageShow);
+	}
+
+	// Page quittee ou rechargee : QUIT au serveur, pour liberer le pseudo
+	// avant la connexion suivante. pagehide plutot que beforeunload : il
+	// part aussi sur mobile, et n'empeche pas le cache de navigation.
+	handlePageHide() {
+		for (let client of this.clients.values()) {
+			client.quit();
+		}
+	}
+
+	// Retour par le cache de navigation : la connexion est fermee, on
+	// recharge le t'Chat.
+	handlePageShow(event) {
+		if (event.persisted) {
+			window.location.reload();
+		}
 	}
 
 	componentWillUnmount() {
@@ -2409,6 +2454,8 @@ export default class App extends Component {
 		window.removeEventListener("focus", this.handleWindowFocus);
 		window.removeEventListener("hashchange", this.handleWindowHashChange);
 		window.removeEventListener("popstate", this.handlePopState);
+		window.removeEventListener("pagehide", this.handlePageHide);
+		window.removeEventListener("pageshow", this.handlePageShow);
 	}
 
 	render() {
@@ -2435,6 +2482,21 @@ export default class App extends Component {
 		let activeClient = null;
 		if (activeBuffer) {
 			activeClient = this.clients.get(activeBuffer.server);
+		}
+
+		// Le serveur a mis fin a la connexion, ou le pseudo reste pris : meme
+		// ecran sobre que celui qui remplace le formulaire de connexion.
+		if (this.state.fin) {
+			return html`
+				<section id="connect">
+					<form onSubmit=${(event) => event.preventDefault()}>
+						<h2>t'Chat</h2>
+						<p>${this.state.fin.message}</p>
+						<p><button type="button" onClick=${() => window.location.reload()}>${this.state.fin.bouton}</button></p>
+						<p><a href="/">Revenir à AuraSync</a></p>
+					</form>
+				</section>
+			`;
 		}
 
 		// Plus de formulaire de connexion : tout passe par SASL (D-056). Cet
@@ -2540,6 +2602,13 @@ export default class App extends Component {
 			dialog = html`
 				<${Dialog} title="Aide" onDismiss=${this.dismissDialog}>
 					<${Help}/>
+				</>
+			`;
+			break;
+		case "motif":
+			dialog = html`
+				<${Dialog} title=${(dialogData.action === "ban" ? "Bannir " : "Expulser ") + dialogData.nick} onDismiss=${this.dismissDialog}>
+					<${MotifForm} action=${dialogData.action} nick=${dialogData.nick} onSubmit=${this.handleMotifSubmit}/>
 				</>
 			`;
 			break;
