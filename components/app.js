@@ -23,7 +23,7 @@ import commands from "../commands.js";
 import NickMenu from "./nick-menu.js";
 import WhoisPanel from "./whois-panel.js";
 import ChannelList from "./channel-list.js";
-import { translateError, translateClientError, isRefusal } from "../lib/irc-errors.js";
+import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner, withoutChannel } from "../lib/kick.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
@@ -521,17 +521,10 @@ export default class App extends Component {
 	showError(err) {
 		console.error("App error: ", err);
 
-		let text;
-		if (err instanceof Error) {
-			let l = [];
-			while (err) {
-				l.push(err.message);
-				err = err.cause;
-			}
-			text = l.join(": ");
-		} else {
-			text = String(err);
-		}
+		// Toute banniere passe par la traduction (D-056), ici et pas chez
+		// l'appelant : une IRCError de join() ou de roundtrip() y arrivait
+		// brute (« Cannot join channel (+b) »).
+		let text = displayError(err);
 		this.setState({ error: text });
 		lastErrorID++;
 		return lastErrorID;
@@ -974,7 +967,7 @@ export default class App extends Component {
 		client.addEventListener("error", (event) => {
 			// Traduit a l'affichage (D-056) : une IRCError porte le texte
 			// anglais du serveur, « Closing Link: … » compris.
-			errorID = this.showError(translateClientError(event.detail));
+			errorID = this.showError(event.detail);
 		});
 
 		this.createBuffer(serverID, SERVER_BUFFER);
@@ -1928,7 +1921,7 @@ export default class App extends Component {
 			cmd.execute(this, args);
 		} catch (error) {
 			console.error(`Failed to execute command "${name}":`, error);
-			this.showError(error.message);
+			this.showError(error);
 		}
 	}
 
