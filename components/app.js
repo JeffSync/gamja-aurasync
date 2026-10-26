@@ -24,6 +24,7 @@ import NickMenu from "./nick-menu.js";
 import WhoisPanel from "./whois-panel.js";
 import ChannelList from "./channel-list.js";
 import { translateError, translateClientError, isRefusal } from "../lib/irc-errors.js";
+import { isSelfKick, nextBuffer, kickBanner, withoutChannel } from "../lib/kick.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -1087,6 +1088,11 @@ export default class App extends Component {
 			return [channel];
 		case "KICK":
 			channel = msg.params[0];
+			// Notre propre expulsion ferme l'onglet (handleSelfKick) : pas de
+			// ligne, qui le recreerait. L'historique, lui, la garde.
+			if (!chatHistoryBatch && isSelfKick(msg.params[1], client.nick, client.cm)) {
+				return [];
+			}
 			return [channel];
 		case "QUIT":
 			affectedBuffers = [];
@@ -1297,6 +1303,11 @@ export default class App extends Component {
 				this.switchBuffer({ server: serverID, name: channel });
 			}
 			break;
+		case "KICK":
+			if (isSelfKick(msg.params[1], client.nick, client.cm)) {
+				this.handleSelfKick(serverID, msg);
+			}
+			break;
 		case "BOUNCER":
 			if (msg.params[0] !== "NETWORK") {
 				break; // We're only interested in network updates
@@ -1433,6 +1444,43 @@ export default class App extends Component {
 		destBuffers.forEach((bufName) => {
 			this.handleChatMessage(serverID, bufName, msg);
 		});
+	}
+
+	// Expulse(e) d'un salon : on le quitte comme un « Partir », sans PART (le
+	// serveur nous en a deja sortis), et on l'oublie (store, parametre
+	// channels de l'URL) pour qu'un rechargement ne le rejoigne pas.
+	handleSelfKick(serverID, msg) {
+		let client = this.clients.get(serverID);
+		let channel = msg.params[0];
+
+		let buf = State.getBuffer(this.state, { server: serverID, name: channel });
+		if (buf) {
+			if (this.state.activeBuffer === buf.id) {
+				let channels = [];
+				for (let b of this.state.buffers.values()) {
+					if (b.server === serverID && b.type === BufferType.CHANNEL) {
+						channels.push(b);
+					}
+				}
+				let next = nextBuffer(channels, buf.id, client.cm);
+				this.switchBuffer(next ?? { server: serverID });
+			}
+			this.setState((state) => {
+				let buffers = new Map(state.buffers);
+				buffers.delete(buf.id);
+				return { buffers };
+			});
+		}
+
+		this.bufferStore.put({ name: channel, server: client.params, closed: true });
+
+		let search = withoutChannel(window.location.search, channel, client.cm);
+		if (search !== null) {
+			let { pathname, hash } = window.location;
+			window.history.replaceState(null, "", pathname + search + hash);
+		}
+
+		this.showError(kickBanner(channel, msg.prefix.name, msg.params[2]));
 	}
 
 	async fetchBacklog(serverID) {
