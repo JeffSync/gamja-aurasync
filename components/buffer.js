@@ -5,6 +5,7 @@ import { strip as stripANSI } from "../lib/ansi.js";
 import { BufferType, ServerStatus, BufferEventsDisplayMode, getMessageURL, isMessageBeforeReceipt, SettingsContext } from "../state.js";
 import * as store from "../store.js";
 import Membership from "./membership.js";
+import { translateKickReason } from "../lib/irc-errors.js";
 
 function djb2(s) {
 	let hash = 5381;
@@ -178,7 +179,7 @@ class LogLine extends Component {
 			}
 
 			if (msg.tags["+draft/channel-context"]) {
-				content = html`<em>(only visible to you)</em> ${content}`;
+				content = html`<em>(visible par toi seul(e))</em> ${content}`;
 			}
 
 			if (msg.isHighlight) {
@@ -207,8 +208,11 @@ class LogLine extends Component {
 			`;
 			break;
 		case "KICK":
+			// Raison traduite a l'affichage (D-056) ; parentheses seulement si
+			// elle existe. Sans raison, le serveur met le pseudo de l'auteur.
+			let kickReason = translateKickReason(msg.params[2], msg.prefix.name);
 			content = html`
-				${createNick(msg.params[1])} a été expulsé(e) par ${createNick(msg.prefix.name)} (${msg.params.slice(2)})
+				${createNick(msg.params[1])} a été expulsé(e) par ${createNick(msg.prefix.name)}${kickReason ? ` (${kickReason})` : ""}
 			`;
 			break;
 		case "MODE":
@@ -609,12 +613,11 @@ class ProtocolHandlerNagger extends Component {
 		if (!navigator.registerProtocolHandler || !this.state.nag) {
 			return null;
 		}
-		let name = this.props.bouncerName || "this bouncer";
 		return html`
 			<div class="logline nag" role="listitem">
 				<${Timestamp}/>
 				${" "}
-											<a href="#" onClick=${this.handleClick}>Associez le protocole IRC</a> pour ouvrir les liens IRC avec ${name}
+											<a href="#" onClick=${this.handleClick}>Ouvre les liens de salons</a> directement dans le t'Chat
 			</div>
 		`;
 	}

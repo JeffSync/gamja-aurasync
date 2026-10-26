@@ -24,7 +24,7 @@ import commands from "../commands.js";
 import NickMenu from "./nick-menu.js";
 import WhoisPanel from "./whois-panel.js";
 import ChannelList from "./channel-list.js";
-import { translateError } from "../lib/irc-errors.js";
+import { translateError, translateClientError, isRefusal } from "../lib/irc-errors.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -969,7 +969,9 @@ export default class App extends Component {
 		});
 
 		client.addEventListener("error", (event) => {
-			errorID = this.showError(event.detail);
+			// Traduit a l'affichage (D-056) : une IRCError porte le texte
+			// anglais du serveur, « Closing Link: … » compris.
+			errorID = this.showError(translateClientError(event.detail));
 		});
 
 		this.createBuffer(serverID, SERVER_BUFFER);
@@ -1418,7 +1420,9 @@ export default class App extends Component {
 			});
 			break;
 		default:
-			if (irc.isError(msg.command) && msg.command !== irc.ERR_NOMOTD) {
+			// 696, 972 et 974 sont hors de la plage de irc.isError : sans ce
+			// test, le refus partait dans l'onglet serveur masque, en silence.
+			if ((irc.isError(msg.command) && msg.command !== irc.ERR_NOMOTD) || isRefusal(msg.command)) {
 				let description = msg.params[msg.params.length - 1];
 				this.showError(translateError(msg.command, description));
 			}
