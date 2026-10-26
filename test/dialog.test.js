@@ -14,7 +14,11 @@ function soumettre(motif) {
 	let form = new MotifForm({ action: "kick", nick: "Kahen", onSubmit: (m) => envoyes.push(m) });
 	form.state.motif = motif;
 	let empeche = false;
-	form.handleSubmit({ preventDefault: () => { empeche = true; } });
+	form.handleSubmit({
+		preventDefault: () => {
+			empeche = true; 
+		}, 
+	});
 	assert.ok(empeche, "pas de rechargement de la page");
 	return envoyes;
 }
