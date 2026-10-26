@@ -9,6 +9,7 @@
  */
 
 import { html, Component } from "../lib/index.js";
+import { peutRendreMuet } from "../lib/mutisme.js";
 
 const MENU_W = 235;
 
@@ -100,7 +101,7 @@ export default class NickMenu extends Component {
 	}
 
 	render() {
-		let { nick, x, y, selfMembership, targetMembership } = this.props;
+		let { nick, x, y, selfMembership, targetMembership, muet } = this.props;
 
 		/* Recadrage : le menu ne doit pas sortir de la fenetre. */
 		let left = Math.min(x - MENU_W + 40, window.innerWidth - MENU_W - 12);
@@ -113,6 +114,17 @@ export default class NickMenu extends Component {
 		let label = statusLabel(targetMembership);
 		let prefix = targetMembership ? targetMembership[0] : "";
 
+		/* Mutisme : moderateur % et au-dessus (D-059). `muet` vient de la
+		   liste des bans, null tant qu'elle n'est pas arrivee. Un ~quiet
+		   n'a pas prise sur un moderateur (message.c, « vhoaq ») : pas
+		   d'entree pour lui. */
+		let mutisme = null;
+		if (peutRendreMuet(selfMembership) && !peutRendreMuet(targetMembership)) {
+			mutisme = muet
+				? html`<${Item} icon=${I.mute} label="Rendre la parole" onClick=${() => this.run("unmute")}/>`
+				: html`<${Item} icon=${I.mute} label="Rendre muet" onClick=${() => this.run("mute")}/>`;
+		}
+
 		let moderation = null;
 		if (canModerate) {
 			moderation = html`
@@ -124,9 +136,15 @@ export default class NickMenu extends Component {
 				${targetRank >= 3
 					? html`<${Item} icon=${I.opOff} label="Retirer l'opérateur" onClick=${() => this.run("deop")}/>`
 					: html`<${Item} icon=${I.opOn} label="Donner l'opérateur" onClick=${() => this.run("op")}/>`}
-				<${Item} icon=${I.mute} label="Rendre muet" onClick=${() => this.run("mute")}/>
+				${mutisme}
 				<${Item} icon=${I.kick} label="Expulser" danger onClick=${() => this.run("kick")}/>
 				<${Item} icon=${I.ban} label="Bannir" danger onClick=${() => this.run("ban")}/>
+			`;
+		} else if (mutisme) {
+			moderation = html`
+				<div class="nick-menu-sep"></div>
+				<div class="nick-menu-title">MODÉRATION</div>
+				${mutisme}
 			`;
 		}
 

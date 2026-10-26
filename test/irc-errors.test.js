@@ -35,7 +35,8 @@ const MOTIFS = [
 	["531", "Recipient is not connected via TLS and you are +Z", "Ce membre n'a pas de connexion sécurisée : ton message ne lui a pas été envoyé."],
 	["404", "Message blocked due to a text ban (#aide)", "Ce message contient un texte interdit dans ce salon."],
 	["404", "Message blocked: " + NOTRE_RAISON, NOTRE_RAISON],
-	["404", "You are banned (#aide)", "Tu es banni(e) de ce salon : tes messages n'y sont pas transmis."],
+	/* ~quiet (D-059) : « :serveur 404 Kahen #aide :You are banned (#aide) » */
+	["404", "You are banned (#aide)", "Tu ne peux plus écrire dans ce salon."],
 	["404", "You need voice (+v) (#aide)", "Ce salon est modéré : seuls les membres autorisés peuvent y écrire."],
 	["404", "You must have a registered nick (+r) to talk on this channel (#aide)", "Seuls les comptes identifiés peuvent écrire dans ce salon."],
 	["404", "No external channel messages (#aide)", "Rejoins le salon pour y écrire."],

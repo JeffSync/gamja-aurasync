@@ -97,7 +97,9 @@ test("sanction : le motif part dans le KICK", () => {
 test("actions qui demandent un motif", () => {
 	assert.ok(demandeMotif("kick"));
 	assert.ok(demandeMotif("ban"));
-	for (let action of ["voice", "devoice", "op", "deop", "mute", "whois", "query"]) {
+	/* D-059 : le mutisme aussi. */
+	assert.ok(demandeMotif("mute"));
+	for (let action of ["voice", "devoice", "op", "deop", "unmute", "whois", "query"]) {
 		assert.ok(!demandeMotif(action), action);
 	}
 });

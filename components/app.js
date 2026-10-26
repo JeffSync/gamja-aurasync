@@ -16,7 +16,7 @@ import SwitcherForm from "./switcher-form.js";
 import Composer from "./composer.js";
 import ScrollManager from "./scroll-manager.js";
 import Dialog from "./dialog.js";
-import MotifForm from "./motif-form.js";
+import MotifForm, { titreMotif } from "./motif-form.js";
 import { html, Component, createRef } from "../lib/index.js";
 import { strip as stripANSI } from "../lib/ansi.js";
 import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEventsDisplayMode, State, getServerName, receiptFromMessage, isReceiptBefore, isMessageBeforeReceipt, SettingsContext } from "../state.js";
@@ -27,6 +27,7 @@ import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner, withoutChannel } from "../lib/kick.js";
 import { commandesSanction, demandeMotif } from "../lib/connexion.js";
+import { commandesParole, estMuet, peutRendreMuet, salonDeNotice } from "../lib/mutisme.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -1079,6 +1080,15 @@ export default class App extends Component {
 					openNewBuffer = false;
 				}
 			}
+			// D-059 : mutisme annonce par un moderateur, sans conversation
+			// ouverte avec lui. Range dans le salon qu'il nomme, pas dans
+			// l'onglet serveur masque (D-012).
+			if (msg.command === "NOTICE" && client.isMyNick(msg.params[0])) {
+				let salon = this.salonMutisme(serverID, msg);
+				if (salon) {
+					target = salon;
+				}
+			}
 			if (!openNewBuffer && !State.getBuffer(this.state, { server: serverID, name: target })) {
 				target = SERVER_BUFFER;
 			}
@@ -1157,8 +1167,6 @@ export default class App extends Component {
 		case irc.RPL_ENDOFINVITELIST:
 		case irc.RPL_EXCEPTLIST:
 		case irc.RPL_ENDOFEXCEPTLIST:
-		case irc.RPL_BANLIST:
-		case irc.RPL_ENDOFBANLIST:
 		case irc.RPL_QUIETLIST:
 		case irc.RPL_ENDOFQUIETLIST:
 			channel = msg.params[1];
@@ -1203,6 +1211,8 @@ export default class App extends Component {
 		case "BOUNCER":
 		case "MARKREAD":
 		case "REDACT":
+		case irc.RPL_BANLIST: // lue par fetchBanList (menu pseudo), masques bruts (D-056)
+		case irc.RPL_ENDOFBANLIST:
 			// Ignore these
 			return [];
 		default:
@@ -1313,6 +1323,12 @@ export default class App extends Component {
 		case "KICK":
 			if (isSelfKick(msg.params[1], client.nick, client.cm)) {
 				this.handleSelfKick(serverID, msg);
+			}
+			break;
+		case "NOTICE":
+			// D-059 : le membre rendu muet le voit aussi en banniere.
+			if (client.isMyNick(msg.params[0]) && this.salonMutisme(serverID, msg)) {
+				this.showError(msg.params[1]);
 			}
 			break;
 		case "BOUNCER":
@@ -1450,6 +1466,17 @@ export default class App extends Component {
 
 		destBuffers.forEach((bufName) => {
 			this.handleChatMessage(serverID, bufName, msg);
+		});
+	}
+
+	/* Salon d'une NOTICE de mutisme recue d'un de ses moderateurs, ou null. */
+	salonMutisme(serverID, msg) {
+		if (!msg.prefix) {
+			return null;
+		}
+		return salonDeNotice(msg.params[1], msg.prefix.name, (salon, pseudo) => {
+			let buf = State.getBuffer(this.state, { server: serverID, name: salon });
+			return buf && buf.members ? buf.members.get(pseudo) : undefined;
 		});
 	}
 
@@ -1622,7 +1649,27 @@ export default class App extends Component {
 			return;
 		}
 		this.setState({
-			nickMenu: { nick, x: event.clientX, y: event.clientY },
+			nickMenu: { nick, x: event.clientX, y: event.clientY, muet: null },
+		});
+		this.fetchMuet(nick);
+	}
+
+	/* « Rendre muet » ou « Rendre la parole » : d'apres la liste des bans. */
+	fetchMuet(nick) {
+		let buf = this.state.buffers.get(this.state.activeBuffer);
+		let client = buf ? this.clients.get(buf.server) : null;
+		if (!client || buf.type !== BufferType.CHANNEL || !buf.members || !peutRendreMuet(buf.members.get(client.nick))) {
+			return;
+		}
+		client.fetchBanList(buf.name).then((masques) => {
+			this.setState((state) => {
+				if (!state.nickMenu || state.nickMenu.nick !== nick || state.activeBuffer !== buf.id) {
+					return null;
+				}
+				return { nickMenu: { ...state.nickMenu, muet: estMuet(masques, nick, client.cm) } };
+			});
+		}).catch((err) => {
+			console.error("Liste des bans indisponible :", err);
 		});
 	}
 
@@ -1747,7 +1794,8 @@ export default class App extends Component {
 			return;
 		}
 
-		// D-058 : expulser ou bannir demande un motif, que le membre verra.
+		// D-058, D-059 : expulser, bannir ou rendre muet demande un motif,
+		// que le membre verra.
 		if (demandeMotif(action)) {
 			this.openDialog("motif", { action, nick, channel: buf.name, server: buf.server });
 			return;
@@ -1766,8 +1814,10 @@ export default class App extends Component {
 		case "deop":
 			client.send({ command: "MODE", params: [buf.name, "-o", nick] });
 			break;
-		case "mute":
-			client.send({ command: "MODE", params: [buf.name, "+b", "~q:" + nick + "!*@*"] });
+		case "unmute":
+			for (let msg of commandesParole(buf.name, nick)) {
+				client.send(msg);
+			}
 			break;
 		}
 	}
@@ -1775,7 +1825,9 @@ export default class App extends Component {
 	handleMotifSubmit(motif) {
 		let { action, nick, channel, server } = this.state.dialogData;
 		let client = this.clients.get(server);
-		let msgs = commandesSanction(action, channel, nick, motif);
+		let buf = State.getBuffer(this.state, { server, name: channel });
+		let cible = buf && buf.members ? buf.members.get(nick) : undefined;
+		let msgs = commandesSanction(action, channel, nick, motif, cible);
 		if (!client || !msgs) {
 			return;
 		}
@@ -2607,7 +2659,7 @@ export default class App extends Component {
 			break;
 		case "motif":
 			dialog = html`
-				<${Dialog} title=${(dialogData.action === "ban" ? "Bannir " : "Expulser ") + dialogData.nick} onDismiss=${this.dismissDialog}>
+				<${Dialog} title=${titreMotif(dialogData.action, dialogData.nick)} onDismiss=${this.dismissDialog}>
 					<${MotifForm} action=${dialogData.action} nick=${dialogData.nick} onSubmit=${this.handleMotifSubmit}/>
 				</>
 			`;
@@ -2714,6 +2766,7 @@ export default class App extends Component {
 					y=${this.state.nickMenu.y}
 					selfMembership=${members && selfNick ? members.get(selfNick) : null}
 					targetMembership=${members ? members.get(this.state.nickMenu.nick) : null}
+					muet=${this.state.nickMenu.muet}
 					onAction=${this.handleNickMenuAction}
 					onClose=${this.closeNickMenu}
 				/>

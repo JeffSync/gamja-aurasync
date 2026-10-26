@@ -1,7 +1,8 @@
 /*
  * lib/client.js face a un faux WebSocket : ordre reel des evenements d'un
  * kill (ERROR puis fermeture 1006), d'une coupure seule, d'un pseudo deja
- * pris a l'enregistrement, et du QUIT a la sortie de page.
+ * pris a l'enregistrement, et du QUIT a la sortie de page. Aussi : la
+ * liste des bans du menu pseudo (D-059).
  */
 
 import { test, beforeEach, afterEach, mock } from "node:test";
@@ -180,4 +181,17 @@ test("C. sortie de page : QUIT envoyé, l'ERROR qui répond ne fait rien", () =>
 	assert.deepEqual(journal.fins, []);
 	assert.deepEqual(journal.erreurs, []);
 	assert.equal(client.autoReconnect, false);
+});
+
+test("liste des bans : masques lus, lignes du salon seulement", async () => {
+	let { client, ws } = nouveauClient();
+	ws.recevoir(":irc.aurasync.fr 001 Kahen :Welcome");
+	let promesse = client.fetchBanList("#aide");
+	assert.ok(ws.envoyes.some((l) => /^(@\S+ )?MODE #aide \+b$/.test(l)), ws.envoyes.join("|"));
+	ws.recevoir(":irc.aurasync.fr 367 Kahen #jeux ~quiet:Lola!*@* Jeff 1761480000");
+	ws.recevoir(":irc.aurasync.fr 367 Kahen #aide ~quiet:Toto!*@* Jeff 1761480000");
+	ws.recevoir(":irc.aurasync.fr 367 Kahen #aide *!*@5.6.7.8 Jeff 1761480000");
+	ws.recevoir(":irc.aurasync.fr 368 Kahen #jeux :End of Channel Ban List");
+	ws.recevoir(":irc.aurasync.fr 368 Kahen #aide :End of Channel Ban List");
+	assert.deepEqual(await promesse, ["~quiet:Toto!*@*", "*!*@5.6.7.8"]);
 });

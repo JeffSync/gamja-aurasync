@@ -5,6 +5,7 @@ import { strip as stripANSI } from "../lib/ansi.js";
 import { BufferType, ServerStatus, BufferEventsDisplayMode, getMessageURL, isMessageBeforeReceipt, SettingsContext } from "../state.js";
 import * as store from "../store.js";
 import Membership from "./membership.js";
+import { pseudoMuet } from "../lib/mutisme.js";
 import { analyseKick } from "../lib/irc-errors.js";
 
 function djb2(s) {
@@ -231,6 +232,13 @@ class LogLine extends Component {
 				let verb;
 								switch (mode) {
 				case "b":
+					// D-059 : un ~quiet n'est pas un ban, c'est un mutisme.
+					if (pseudoMuet(arg)) {
+						content = plusMinus === "+"
+							? html`${user} a rendu ${createNick(pseudoMuet(arg))} muet(te)`
+							: html`${user} a rendu la parole à ${createNick(pseudoMuet(arg))}`;
+						break;
+					}
 					verb = plusMinus === "+" ? "a banni" : "a débanni";
 					content = html`${user} ${verb} ${arg}`;
 					break;
