@@ -9,7 +9,7 @@
 import { test, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import {
-	translateError, translateClosing, translateKickReason, translateClientError,
+	translateError, translateClosing, translateKickReason, analyseKick, translateClientError,
 	isRefusal, REPLI_ERREUR, REPLI_FIN, MESSAGES, MOTIFS as TABLE,
 } from "../lib/irc-errors.js";
 
@@ -175,6 +175,63 @@ test("raisons de KICK", () => {
 	assert.equal(translateKickReason("calme-toi", "Jeff"), "calme-toi", "une raison ecrite par l'equipe reste");
 });
 
+/* Raisons par defaut d'Anope 2.0.20, relevees dans les sources. */
+const KICKS_ANOPE = [
+	["ChanServ", "This channel has been suspended.", "salon suspendu"],
+	["ChanServ", "This channel may not be used.", "salon suspendu"],
+	["OperServ", "This channel has been forbidden: spam", "salon interdit"],
+	["AuraBot", "Don't use bolds on this channel!", "pas de gras dans ce salon"],
+	["AuraBot", "Don't use colors on this channel!", "pas de couleurs dans ce salon"],
+	["AuraBot", "Don't use reverses on this channel!", "pas de texte inversé dans ce salon"],
+	["AuraBot", "Don't use italics on this channel!", "pas d'italique dans ce salon"],
+	["AuraBot", "Don't use underlines on this channel!", "pas de soulignement dans ce salon"],
+	["AuraBot", "Turn caps lock OFF!", "trop de majuscules"],
+	["AuraBot", "Watch your language!", "langage inapproprié"],
+	["AuraBot", "Don't use the word \"bite\" on this channel!", "mot interdit dans ce salon"],
+	["AuraBot", "Stop flooding!", "trop de messages en peu de temps"],
+	["AuraBot", "Stop repeating yourself!", "messages répétés"],
+	["AuraBot", "Don't use AMSGs!", "même message envoyé dans plusieurs salons"],
+];
+
+test("KICK : raisons par défaut d'Anope traduites, auteur inchangé", () => {
+	for (let [auteur, texte, attendu] of KICKS_ANOPE) {
+		assert.deepEqual(analyseKick(texte, auteur), { auteur, raison: attendu }, texte);
+	}
+	assert.equal(journal.mock.callCount(), 0);
+});
+
+test("KICK signé (SIGNKICK) : le vrai auteur est le pseudo de la signature", () => {
+	/* !kb sans motif via AuraBot : signkickformat « %m (%n) ». */
+	assert.deepEqual(analyseKick("Requested (Jeff)", "AuraBot"), { auteur: "Jeff", raison: "" });
+	assert.deepEqual(analyseKick("Requested (Jeff)", "ChanServ"), { auteur: "Jeff", raison: "" });
+	/* Motif ecrit par l'equipe, parentheses comprises. */
+	assert.deepEqual(analyseKick("calme-toi (Jeff)", "AuraBot"), { auteur: "Jeff", raison: "calme-toi" });
+	assert.deepEqual(analyseKick("spam (pub) (Jeff)", "AuraBot"), { auteur: "Jeff", raison: "spam (pub)" });
+	/* Expulsion par masque, signee ou non : le masque disparait. */
+	assert.deepEqual(analyseKick("Requested (Matches *!*@1.2.3.4) (Jeff)", "AuraBot"), { auteur: "Jeff", raison: "" });
+	assert.deepEqual(analyseKick("Requested (Matches *!*@1.2.3.4)", "AuraBot"), { auteur: "AuraBot", raison: "" });
+	assert.deepEqual(analyseKick("dehors (Matches *!*@1.2.3.4) (Jeff)", "AuraBot"), { auteur: "Jeff", raison: "dehors" });
+	/* OperServ KICK : « Jeff (motif) ». */
+	assert.deepEqual(analyseKick("Jeff (calme-toi)", "OperServ"), { auteur: "Jeff", raison: "calme-toi" });
+	/* ChanServ ENFORCE. */
+	assert.deepEqual(analyseKick("RESTRICTED enforced by Jeff", "ChanServ"), { auteur: "Jeff", raison: "salon réservé" });
+	assert.deepEqual(analyseKick("REGONLY enforced by Jeff", "ChanServ"), { auteur: "Jeff", raison: "salon réservé aux comptes identifiés" });
+	assert.deepEqual(analyseKick("SSLONLY enforced by Jeff", "ChanServ"), { auteur: "Jeff", raison: "salon réservé aux connexions sécurisées" });
+	assert.deepEqual(analyseKick("BANS enforced by Jeff", "ChanServ"), { auteur: "Jeff", raison: "banni(e) du salon" });
+	assert.deepEqual(analyseKick("LIMIT enforced by Jeff", "ChanServ"), { auteur: "Jeff", raison: "salon complet" });
+	assert.equal(journal.mock.callCount(), 0);
+});
+
+test("KICK : AuraBot est un service, son anglais inconnu ne s'affiche pas", () => {
+	assert.deepEqual(analyseKick("Some new BotServ reason!", "AuraBot"), { auteur: "AuraBot", raison: "" });
+	assert.equal(journal.mock.callCount(), 1);
+});
+
+test("KICK : un membre de l'équipe en direct n'est pas « désigné » par ses parenthèses", () => {
+	assert.deepEqual(analyseKick("calme-toi (Kahen)", "Jeff"), { auteur: "Jeff", raison: "calme-toi (Kahen)" });
+	assert.deepEqual(analyseKick("Jeff", "Jeff"), { auteur: "Jeff", raison: "" });
+});
+
 test("erreurs du client : IRCError traduite, autres erreurs inchangees", () => {
 	let msg = { command: "ERROR", params: ["Closing Link: Kahen[1.2.3.4] (Ping timeout: 180 seconds)"] };
 	assert.equal(translateClientError({ msg }), "La connexion au t'Chat a été perdue. Reconnexion…");
@@ -211,6 +268,7 @@ test("aucune sortie ne contient « IRC »", () => {
 	sorties.push(translateClosing("Closing Link: Kahen[1.2.3.4] (Killed by Jeff (va sur IRC))"));
 	sorties.push(translateClosing("Closing Link: Kahen[1.2.3.4] (IRC down)"));
 	sorties.push(translateKickReason("IRC n'est pas ton ami", "Jeff"));
+	sorties.push(translateKickReason("IRC n'est pas ton ami (Jeff)", "AuraBot"));
 	sorties.push(...Object.values(MESSAGES), REPLI_ERREUR, REPLI_FIN);
 	for (let sortie of sorties) {
 		assert.doesNotMatch(sortie, /IRC/i, sortie);

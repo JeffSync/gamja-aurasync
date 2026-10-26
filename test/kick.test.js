@@ -68,6 +68,12 @@ test("bannière avec raison traduite", () => {
 	assert.equal(kickBanner("#aide", "ChanServ", "Some new English reason"), "Tu as été expulsé(e) de #aide par ChanServ.");
 });
 
+test("bannière : !kb sans motif via AuraBot nomme le vrai auteur", () => {
+	assert.equal(kickBanner("#AuraSync", "AuraBot", "Requested (Jeff)"), "Tu as été expulsé(e) de #AuraSync par Jeff.");
+	assert.equal(kickBanner("#AuraSync", "AuraBot", "calme-toi (Jeff)"), "Tu as été expulsé(e) de #AuraSync par Jeff (calme-toi).");
+	assert.equal(kickBanner("#AuraSync", "AuraBot", "Turn caps lock OFF!"), "Tu as été expulsé(e) de #AuraSync par AuraBot (trop de majuscules).");
+});
+
 test("bannière : le serveur n'est pas nommé", () => {
 	assert.equal(
 		kickBanner("#aide", "irc.aurasync.fr", "Flooding (Limit is 5 lines per 3 seconds)"),

@@ -5,7 +5,7 @@ import { strip as stripANSI } from "../lib/ansi.js";
 import { BufferType, ServerStatus, BufferEventsDisplayMode, getMessageURL, isMessageBeforeReceipt, SettingsContext } from "../state.js";
 import * as store from "../store.js";
 import Membership from "./membership.js";
-import { translateKickReason } from "../lib/irc-errors.js";
+import { analyseKick } from "../lib/irc-errors.js";
 
 function djb2(s) {
 	let hash = 5381;
@@ -210,9 +210,10 @@ class LogLine extends Component {
 		case "KICK":
 			// Raison traduite a l'affichage (D-056) ; parentheses seulement si
 			// elle existe. Sans raison, le serveur met le pseudo de l'auteur.
-			let kickReason = translateKickReason(msg.params[2], msg.prefix.name);
+			// Un KICK signe par Anope (« Requested (Jeff) ») nomme Jeff.
+			let kick = analyseKick(msg.params[2], msg.prefix.name);
 			content = html`
-				${createNick(msg.params[1])} a été expulsé(e) par ${createNick(msg.prefix.name)}${kickReason ? ` (${kickReason})` : ""}
+				${createNick(msg.params[1])} a été expulsé(e) par ${createNick(kick.auteur)}${kick.raison ? ` (${kick.raison})` : ""}
 			`;
 			break;
 		case "MODE":
