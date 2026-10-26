@@ -41,12 +41,12 @@ class MemberItem extends Component {
 			}
 
 			if (user.account) {
-				title += `\nAuthenticated as ${user.account}`;
+				title += `\nCompte identifié : ${user.account}`;
 			}
 
 			if (user.away) {
 				classes.push("away");
-				title += "\nAway";
+				title += "\nAbsent(e)";
 			}
 		}
 

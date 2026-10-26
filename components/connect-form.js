@@ -1,3 +1,9 @@
+/*
+ * Formulaire de connexion de Gamja. Le t'Chat ne l'affiche plus (D-056) :
+ * tout passe par SASL, avec les identifiants de config.json. Le fichier
+ * reste pour suivre l'upstream ; ses textes sont traduits au cas ou.
+ */
+
 import { html, Component, createRef } from "../lib/index.js";
 import linkify from "../lib/linkify.js";
 
@@ -87,7 +93,7 @@ export default class ConnectForm extends Component {
 		if (!this.props.params || !this.props.params.url) {
 			serverURL = html`
 				<label>
-					Server URL:<br/>
+					Adresse du serveur :<br/>
 					<input
 						type="text"
 						name="url"
@@ -103,7 +109,7 @@ export default class ConnectForm extends Component {
 		let status = null;
 		if (this.props.connecting) {
 			status = html`
-				<p>Connecting...</p>
+				<p>Connexion…</p>
 			`;
 		} else if (this.props.error) {
 			status = html`
@@ -115,14 +121,14 @@ export default class ConnectForm extends Component {
 		if (this.props.auth !== "disabled" && this.props.auth !== "external" && this.props.auth !== "oauth2") {
 			auth = html`
 				<label>
-					Password:<br/>
+					Mot de passe :<br/>
 					<input
 						type="password"
 						name="password"
 						value=${this.state.password}
 						disabled=${disabled}
 						required=${this.props.auth === "mandatory"}
-						placeholder=${this.props.auth !== "mandatory" ? "(optional)" : ""}
+						placeholder=${this.props.auth !== "mandatory" ? "(facultatif)" : ""}
 					/>
 				</label>
 				<br/><br/>
@@ -132,7 +138,6 @@ export default class ConnectForm extends Component {
 		let autojoin = null;
 		let channels = this.props.params.autojoin || [];
 		if (channels.length > 0) {
-			let s = channels.length > 1 ? "s" : "";
 			autojoin = html`
 				<label>
 					<input
@@ -140,7 +145,7 @@ export default class ConnectForm extends Component {
 						name="autojoin"
 						checked=${this.state.autojoin}
 					/>
-					Auto-join channel${s} <strong>${channels.join(", ")}</strong>
+					Rejoindre automatiquement <strong>${channels.join(", ")}</strong>
 				</label>
 				<br/><br/>
 			`;
@@ -148,10 +153,10 @@ export default class ConnectForm extends Component {
 
 		return html`
 			<form onInput=${this.handleInput} onSubmit=${this.handleSubmit}>
-				<h2>Connect to IRC</h2>
+				<h2>Connexion au t'Chat</h2>
 
 				<label>
-					Nickname:<br/>
+					Pseudo :<br/>
 					<input
 						type="username"
 						name="nick"
@@ -175,56 +180,56 @@ export default class ConnectForm extends Component {
 						checked=${this.state.rememberMe}
 						disabled=${disabled}
 					/>
-					Remember me
+					Se souvenir de moi
 				</label>
 				<br/><br/>
 
 				<details>
-					<summary role="button">Advanced options</summary>
+					<summary role="button">Options avancées</summary>
 
 					<br/>
 
 					${serverURL}
 
 					<label>
-						Username:<br/>
+						Identifiant :<br/>
 						<input
 							type="username"
 							name="username"
 							value=${this.state.username}
 							disabled=${disabled}
-							placeholder="Same as nickname"
+							placeholder="Comme le pseudo"
 						/>
 					</label>
 					<br/><br/>
 
 					<label>
-						Real name:<br/>
+						Nom affiché :<br/>
 						<input
 							type="text"
 							name="realname"
 							value=${this.state.realname}
 							disabled=${disabled}
-							placeholder="Same as nickname"
+							placeholder="Comme le pseudo"
 						/>
 					</label>
 					<br/><br/>
 
 					<label>
-						Server password:<br/>
+						Mot de passe du serveur :<br/>
 						<input
 							type="password"
 							name="pass"
 							value=${this.state.pass}
 							disabled=${disabled}
-							placeholder="None"
+							placeholder="Aucun"
 						/>
 					</label>
 					<br/><br/>
 				</details>
 
 				<br/>
-				<button disabled=${disabled}>Connect</button>
+				<button disabled=${disabled}>Se connecter</button>
 
 				${status}
 			</form>

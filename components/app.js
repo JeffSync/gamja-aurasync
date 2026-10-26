@@ -5,7 +5,6 @@ import Buffer from "./buffer.js";
 import BufferList from "./buffer-list.js";
 import BufferHeader from "./buffer-header.js";
 import MemberList from "./member-list.js";
-import ConnectForm from "./connect-form.js";
 import JoinForm from "./join-form.js";
 import Help from "./help.js";
 import NetworkForm from "./network-form.js";
@@ -236,7 +235,6 @@ export default class App extends Component {
 	constructor(props) {
 		super(props);
 
-		this.handleConnectSubmit = this.handleConnectSubmit.bind(this);
 		this.handleJoinSubmit = this.handleJoinSubmit.bind(this);
 		this.handleBufferListClick = this.handleBufferListClick.bind(this);
 		this.handleBufferListClose = this.handleBufferListClose.bind(this);
@@ -452,7 +450,11 @@ export default class App extends Component {
 
 		this.setState({ loading: false, connectParams });
 
-		if (connectParams.autoconnect) {
+		// Le t'Chat ne se connecte que par SASL, avec les identifiants que
+		// config.json livre pour la session en cours. Sans eux (session
+		// expiree, API injoignable, store perime), on ne se connecte pas :
+		// le serveur refuserait, et aucun formulaire ne doit les demander.
+		if (connectParams.autoconnect && connectParams.saslPlain) {
 			this.setState({ connectForm: false });
 			this.connect(connectParams);
 		}
@@ -1493,24 +1495,6 @@ export default class App extends Component {
 		});
 	}
 
-	handleConnectSubmit(connectParams) {
-		this.dismissError();
-
-		if (connectParams.autoconnect) {
-			store.autoconnect.put(connectParams);
-		} else {
-			store.autoconnect.put(null);
-		}
-
-		// Disconnect previous server, if any
-		let activeBuffer = this.state.buffers.get(this.state.activeBuffer);
-		if (activeBuffer) {
-			this.close(activeBuffer.server);
-		}
-
-		this.connect(connectParams);
-	}
-
 	handleChannelClick(event) {
 		let handled = this.openURL(event.target.href);
 		if (handled) {
@@ -2412,18 +2396,22 @@ export default class App extends Component {
 			activeClient = this.clients.get(activeBuffer.server);
 		}
 
+		// Plus de formulaire de connexion : tout passe par SASL (D-056). Cet
+		// ecran remplace celui de Gamja quand le t'Chat n'a pas d'identifiants
+		// ou que le dernier serveur a ete ferme.
 		if (this.state.connectForm) {
-			let status = activeServer ? activeServer.status : ServerStatus.DISCONNECTED;
-			let connecting = status === ServerStatus.CONNECTING || status === ServerStatus.REGISTERING;
+			let error = null;
+			if (this.state.error) {
+				error = html`<p class="error-text">${this.state.error}</p>`;
+			}
 			return html`
 				<section id="connect">
-					<${ConnectForm}
-						error=${this.state.error}
-						params=${this.state.connectParams}
-						auth=${this.config.server.auth}
-						connecting=${connecting}
-						onSubmit=${this.handleConnectSubmit}
-					/>
+					<form onSubmit=${(event) => event.preventDefault()}>
+						<h2>t'Chat</h2>
+						<p>Le t'Chat n'a pas pu t'identifier automatiquement : ta session sur AuraSync a peut-être expiré.</p>
+						${error}
+						<p><a href="/tchat">Revenir au t'Chat</a></p>
+					</form>
 				</section>
 			`;
 		}

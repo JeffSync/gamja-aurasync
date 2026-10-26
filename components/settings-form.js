@@ -1,3 +1,9 @@
+/*
+ * Reglages de Gamja. Inatteignables dans le t'Chat : aucun composant
+ * n'appelle onOpenSettings. Traduits au cas ou ; le choix du protocole
+ * par defaut du navigateur est retire (il nommait la technologie, D-001).
+ */
+
 import { html, Component } from "../lib/index.js";
 
 export default class SettingsForm extends Component {
@@ -26,35 +32,7 @@ export default class SettingsForm extends Component {
 		this.props.onClose();
 	}
 
-	registerProtocol() {
-		let url = window.location.origin + window.location.pathname + "?open=%s";
-		try {
-			navigator.registerProtocolHandler("irc", url);
-			navigator.registerProtocolHandler("ircs", url);
-		} catch (err) {
-			console.error("Failed to register protocol handler: ", err);
-		}
-	}
-
 	render() {
-		let protocolHandler = null;
-		if (this.props.showProtocolHandler) {
-			protocolHandler = html`
-				<div class="protocol-handler">
-					<div class="left">
-						Set gamja as your default IRC client for this browser.
-						IRC links will be automatically opened here.
-					</div>
-					<div class="right">
-						<button type="button" onClick=${() => this.registerProtocol()}>
-							Enable
-						</button>
-					</div>
-				</div>
-				<br/><br/>
-			`;
-		}
-
 		return html`
 			<form onInput=${this.handleInput} onSubmit=${this.handleSubmit}>
 				<label>
@@ -63,7 +41,7 @@ export default class SettingsForm extends Component {
 						name="secondsInTimestamps"
 						checked=${this.state.secondsInTimestamps}
 					/>
-					Show seconds in time indicator
+					Afficher les secondes dans l'heure des messages
 				</label>
 				<br/><br/>
 
@@ -74,7 +52,7 @@ export default class SettingsForm extends Component {
 						value="fold"
 						checked=${this.state.bufferEvents === "fold"}
 					/>
-					Show and fold chat events
+					Afficher les arrivées et départs, regroupés
 				</label>
 				<br/>
 				<label>
@@ -84,7 +62,7 @@ export default class SettingsForm extends Component {
 						value="expand"
 						checked=${this.state.bufferEvents === "expand"}
 					/>
-					Show and expand chat events
+					Afficher les arrivées et départs, en détail
 				</label>
 				<br/>
 				<label>
@@ -94,17 +72,15 @@ export default class SettingsForm extends Component {
 						value="hide"
 						checked=${this.state.bufferEvents === "hide"}
 					/>
-					Hide chat events
+					Masquer les arrivées et départs
 				</label>
 				<br/><br/>
 
-				${protocolHandler}
-
 				<button type="button" class="danger" onClick=${() => this.props.onDisconnect()}>
-					Disconnect
+					Se déconnecter
 				</button>
 				<button>
-					Close
+					Fermer
 				</button>
 			</form>
 		`;
