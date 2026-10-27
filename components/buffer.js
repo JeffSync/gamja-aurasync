@@ -183,6 +183,12 @@ class LogLine extends Component {
 				content = html`<em>(visible par toi seul(e))</em> ${content}`;
 			}
 
+			// D-059 : message jete par un shun, jamais parti.
+			if (msg.nonTransmis) {
+				lineClass += " non-transmis";
+				content = html`${content} <span class="non-transmis-note">non transmis</span>`;
+			}
+
 			if (msg.isHighlight) {
 				lineClass += " highlight";
 			}

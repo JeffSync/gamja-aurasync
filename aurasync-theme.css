@@ -1062,3 +1062,17 @@ button:active {
 	cursor: not-allowed;
 	transform: none;
 }
+
+/* Message jete par un shun (D-059) : marque, pas affiche comme parti. */
+#buffer .logline.non-transmis {
+	opacity: 0.6;
+}
+.non-transmis-note {
+	margin-left: 6px;
+	padding: 0 6px;
+	border-radius: 5px;
+	background: rgba(239, 68, 68, 0.18);
+	color: #fecaca;
+	font-size: 11px;
+	white-space: nowrap;
+}

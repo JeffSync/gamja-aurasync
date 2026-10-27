@@ -85,7 +85,7 @@ const commands = [
 			if (!target || !text) {
 				throw new Error("Indique le destinataire puis le message");
 			}
-			getActiveClient(app).send({ command: "PRIVMSG", params: [target, text] });
+			app.privmsg(target, text);
 		},
 	},
 	{

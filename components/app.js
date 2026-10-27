@@ -28,6 +28,7 @@ import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner, withoutChannel } from "../lib/kick.js";
 import { commandesSanction, demandeMotif } from "../lib/connexion.js";
 import { commandesParole, estMuet, peutRendreMuet, salonDeNotice } from "../lib/mutisme.js";
+import { RESTREINT } from "../lib/shun.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -212,6 +213,7 @@ export default class App extends Component {
 		error: null,
 		/* Fin de connexion sans reconnexion : { message, bouton }. */
 		fin: null,
+		restreint: false,
 		openPanels: {
 			bufferList: false,
 			memberList: false,
@@ -979,6 +981,10 @@ export default class App extends Component {
 			this.setState({ fin: { message: displayError(message), bouton } });
 		});
 
+		client.addEventListener("restriction", (event) => {
+			this.setState({ restreint: event.detail.restreint });
+		});
+
 		client.addEventListener("error", (event) => {
 			// Traduit a l'affichage (D-056) : une IRCError porte le texte
 			// anglais du serveur, « Closing Link: … » compris.
@@ -1278,14 +1284,14 @@ export default class App extends Component {
 				let batch = [], len = 0;
 				for (let chan of join) {
 					if (batch.length > 0 && len + 1 + chan.length > MAX_JOIN_LEN) {
-						client.send({ command: "JOIN", params: [batch.join(",")] });
+						this.joinSuivi(client, batch);
 						batch = []; len = 0;
 					}
 					len += (batch.length > 0 ? 1 : 0) + chan.length;
 					batch.push(chan);
 				}
 				if (batch.length > 0) {
-					client.send({ command: "JOIN", params: [batch.join(",")] });
+					this.joinSuivi(client, batch);
 				}
 			}
 
@@ -1466,6 +1472,13 @@ export default class App extends Component {
 
 		destBuffers.forEach((bufName) => {
 			this.handleChatMessage(serverID, bufName, msg);
+		});
+	}
+
+	/* JOIN de la connexion, suivi : un ACK seul trahit un shun (D-059). */
+	joinSuivi(client, salons) {
+		client.sendSuivi({ command: "JOIN", params: [salons.join(",")] }).catch((err) => {
+			console.error("Suivi du JOIN impossible :", err);
 		});
 	}
 
@@ -2013,12 +2026,31 @@ export default class App extends Component {
 		let client = this.clients.get(serverID);
 
 		let msg = { command: "PRIVMSG", params: [target, text] };
-		client.send(msg);
 
 		if (!client.caps.enabled.has("echo-message")) {
+			client.send(msg);
 			msg.prefix = { name: client.nick };
 			this.handleChatMessage(serverID, target, msg);
+			return;
 		}
+
+		// D-059 : envoi suivi. L'echo affiche le message comme avant ; un
+		// shun ne renvoie qu'un ACK, et le message est alors marque non
+		// transmis au lieu de disparaitre.
+		client.sendSuivi(msg).then((decision) => {
+			if (decision !== "shun") {
+				return;
+			}
+			let nonTransmis = {
+				...msg,
+				prefix: { name: client.nick },
+				tags: { time: new Date().toISOString() },
+				nonTransmis: true,
+			};
+			this.handleChatMessage(serverID, target, nonTransmis);
+		}).catch((err) => {
+			console.error("Suivi du message impossible :", err);
+		});
 	}
 
 	handleComposerSubmit(text) {
@@ -2748,6 +2780,10 @@ export default class App extends Component {
 					<button onClick=${this.handleDismissError}>×</button>
 				</div>
 			`;
+		} else if (this.state.restreint) {
+			// Shun detecte (D-059) : persistant, sans croix. Revient des
+			// qu'une autre banniere est fermee.
+			error = html`<div id="error-msg" role="alert">${RESTREINT}</div>`;
 		}
 
 		let nickMenu = null;
