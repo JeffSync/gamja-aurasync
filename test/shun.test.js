@@ -5,7 +5,7 @@
 
 import { test, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
-import { suivreLabel, decisionEnvoi, decisionSonde, sonde, RESTREINT, DELAI_REPONSE } from "../lib/shun.js";
+import { suivreLabel, decisionEnvoi, decisionSonde, sonde, shunInscription, RESTREINT, DELAI_REPONSE } from "../lib/shun.js";
 
 const m = (command, params, tags = {}) => ({ command, params, tags });
 
@@ -51,6 +51,14 @@ test("décisions : seul un ACK à la sonde est un shun", () => {
 	assert.equal(decisionSonde({ type: "ack" }), "shun");
 	assert.equal(decisionSonde({ type: "reponse", reponses: [] }), "libre");
 	assert.deepEqual(sonde("Kahen"), { command: "MODE", params: ["Kahen"] });
+});
+
+test("à la connexion : seul un 451 après le 903 et avant le 001 est un shun", () => {
+	assert.equal(shunInscription("451", { saslReussi: true, enregistre: false }), true);
+	assert.equal(shunInscription("451", { saslReussi: false, enregistre: false }), false, "avant l'identification");
+	assert.equal(shunInscription("451", { saslReussi: true, enregistre: true }), false, "après le 001");
+	assert.equal(shunInscription("421", { saslReussi: true, enregistre: false }), false);
+	assert.equal(shunInscription("462", { saslReussi: true, enregistre: false }), false);
 });
 
 test("texte : repli de D-058, ni « IRC » ni anglais", () => {

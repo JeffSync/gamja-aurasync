@@ -6,9 +6,11 @@
 import { test, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import {
-	finServeur, finPseudoPris, apresFermeture, reessaiPseudo, motifValide,
-	commandesSanction, demandeMotif, MAX_ESSAIS_PSEUDO, DELAI_ESSAI_PSEUDO, DEJA_CONNECTE,
+	finServeur, finPseudoPris, finRestreint, apresFermeture, reessaiPseudo, motifValide,
+	commandesSanction, demandeMotif, delaiReconnexion, MAX_ESSAIS_PSEUDO, DELAI_ESSAI_PSEUDO, DEJA_CONNECTE,
+	DELAI_RECONNEXION_MIN, DELAI_RECONNEXION_MAX,
 } from "../lib/connexion.js";
+import { RESTREINT } from "../lib/shun.js";
 import { CONNEXION_PERDUE, REPLI_FIN } from "../lib/irc-errors.js";
 
 beforeEach(() => {
@@ -108,5 +110,31 @@ test("aucun texte de fin ne contient « IRC » ni d'anglais connu", () => {
 	let sorties = [...DEFINITIVES.map(([r]) => finServeur(fin(r)).message), CONNEXION_PERDUE, DEJA_CONNECTE];
 	for (let s of sorties) {
 		assert.doesNotMatch(s, /IRC|Killed|Banned|Lined|Closing/i, s);
+	}
+});
+
+test("shun à la connexion : écran de fin, pas de reconnexion, « Réessayer »", () => {
+	assert.deepEqual(finRestreint(), { reconnecter: false, message: RESTREINT, bouton: "Réessayer" });
+});
+
+test("reconnexion : 10 s, 30 s, puis double, plafond 10 min", () => {
+	let delais = Array.from({ length: 12 }, (_, i) => delaiReconnexion(i));
+	assert.deepEqual(delais.slice(0, 6), [10000, 30000, 60000, 120000, 240000, 480000]);
+	assert.equal(delais[0], DELAI_RECONNEXION_MIN);
+	assert.ok(delais.slice(6).every((d) => d === DELAI_RECONNEXION_MAX));
+	assert.equal(DELAI_RECONNEXION_MAX, 10 * 60 * 1000);
+	for (let i = 1; i < delais.length; i++) {
+		assert.ok(delais[i] >= delais[i - 1], "jamais plus court que le précédent");
+	}
+});
+
+test("reconnexion : jamais plus de 3 connexions en 60 s (connect-flood d'UnrealIRCd)", () => {
+	/* Instants des connexions : la premiere, puis chaque essai apres son delai. */
+	let instants = [0];
+	for (let i = 0; i < 40; i++) {
+		instants.push(instants[instants.length - 1] + delaiReconnexion(i));
+	}
+	for (let i = 0; i + 3 < instants.length; i++) {
+		assert.ok(instants[i + 3] - instants[i] >= 60000, "4 connexions en moins de 60 s à partir de la n°" + i);
 	}
 });
