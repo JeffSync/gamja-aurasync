@@ -275,3 +275,51 @@ test("aucune sortie ne contient « IRC »", () => {
 		assert.doesNotMatch(sortie, /IRC/i, sortie);
 	}
 });
+
+/*
+ * Noms AuraSync des services (D-061) : avant et apres la bascule d'Anope,
+ * les deux jeux de noms sont des services. Leur anglais inconnu ne
+ * s'affiche jamais.
+ */
+const ANCIENS = ["NickServ", "ChanServ", "MemoServ", "OperServ", "BotServ", "HostServ"];
+const NOUVEAUX = ["PseudoSync", "SalonSync", "MemoSync", "OperSync", "BotSync", "HostSync"];
+
+test("D-061 : KILL d'un service, ancien ou nouveau nom, à raison inconnue : motif non précisé", () => {
+	for (let nom of [...ANCIENS, ...NOUVEAUX]) {
+		assert.equal(
+			translateClosing(`Closing Link: Kahen[1.2.3.4] (Killed by ${nom} (Some unknown service reason))`),
+			"Tu as été déconnecté(e) par l'équipe : motif non précisé",
+			nom,
+		);
+	}
+	assert.equal(
+		translateClosing("Closing Link: Kahen[1.2.3.4] (Killed by PseudoSync (Services nickname-enforcer kill))"),
+		"Tu as été déconnecté(e) : ce pseudo appartient à un autre compte.",
+	);
+});
+
+test("D-061 : KICK d'un service, ancien ou nouveau nom, à raison inconnue : motif non précisé", () => {
+	for (let nom of [...ANCIENS, ...NOUVEAUX]) {
+		assert.deepEqual(analyseKick("Some new English reason", nom), { auteur: nom, raison: MOTIF }, nom);
+	}
+	assert.deepEqual(
+		analyseKick("You are not permitted to be on this channel.", "SalonSync"),
+		{ auteur: "SalonSync", raison: "salon réservé" },
+	);
+	assert.deepEqual(analyseKick("Requested (Jeff)", "SalonSync"), { auteur: "Jeff", raison: MOTIF });
+	assert.deepEqual(analyseKick("RESTRICTED enforced by Jeff", "SalonSync"), { auteur: "Jeff", raison: "salon réservé" });
+});
+
+test("D-061 : OperSync KICK signe « Jeff (motif) », comme OperServ", () => {
+	for (let nom of ["OperServ", "OperSync"]) {
+		assert.deepEqual(analyseKick("Jeff (calme-toi)", nom), { auteur: "Jeff", raison: "calme-toi" }, nom);
+	}
+});
+
+test("D-061 : un membre au nom voisin n'est pas un service, son motif reste", () => {
+	assert.deepEqual(analyseKick("calme-toi", "PseudoSyncFan"), { auteur: "PseudoSyncFan", raison: "calme-toi" });
+	assert.equal(
+		translateClosing("Closing Link: Kahen[1.2.3.4] (Killed by SyncFan (spam répété))"),
+		"Tu as été déconnecté(e) par l'équipe : spam répété",
+	);
+});
