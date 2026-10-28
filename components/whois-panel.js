@@ -129,7 +129,7 @@ export default class WhoisPanel extends Component {
 				<${Row} label="Sécurité" value=${secure}/>
 				<${Row} label="Salons communs" value=${channels}/>
 				<${Row} label="Inactif depuis" value=${idle}/>
-				<${Row} label="Connecté depuis" value=${signon}/>
+				<${Row} label="Connexion depuis" value=${signon}/>
 			`;
 		}
 

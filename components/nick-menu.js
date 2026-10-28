@@ -122,7 +122,7 @@ export default class NickMenu extends Component {
 		if (peutRendreMuet(selfMembership) && !peutRendreMuet(targetMembership)) {
 			mutisme = muet
 				? html`<${Item} icon=${I.mute} label="Rendre la parole" onClick=${() => this.run("unmute")}/>`
-				: html`<${Item} icon=${I.mute} label="Rendre muet" onClick=${() => this.run("mute")}/>`;
+				: html`<${Item} icon=${I.mute} label="Rendre muet(te)" onClick=${() => this.run("mute")}/>`;
 		}
 
 		let moderation = null;

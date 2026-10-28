@@ -12,10 +12,10 @@ import { motifValide } from "../lib/connexion.js";
 const LIBELLES = {
 	kick: "Expulser",
 	ban: "Bannir",
-	mute: "Rendre muet",
+	mute: "Rendre muet(te)",
 };
 
-/* Titre du dialogue : « Expulser Kahen », « Rendre muet Kahen »… */
+/* Titre du dialogue : « Expulser Kahen », « Rendre muet(te) Kahen »… */
 export function titreMotif(action, nick) {
 	return (LIBELLES[action] || "Sanctionner") + " " + nick;
 }

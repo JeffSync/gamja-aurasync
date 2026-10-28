@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import MotifForm from "../components/motif-form.js";
+import MotifForm, { titreMotif } from "../components/motif-form.js";
 import Dialog from "../components/dialog.js";
 
 function soumettre(motif) {
@@ -65,4 +65,9 @@ test("la croix du dialogue n'est pas en anglais", () => {
 	let source = readFileSync(new URL("../components/dialog.js", import.meta.url), "utf8");
 	assert.doesNotMatch(source, /"Close"/);
 	assert.match(source, /title="Fermer"/);
+});
+
+test("titre du dialogue : forme neutre pour le mutisme (D-062)", () => {
+	assert.equal(titreMotif("mute", "Kahen"), "Rendre muet(te) Kahen");
+	assert.equal(titreMotif("kick", "Kahen"), "Expulser Kahen");
 });
