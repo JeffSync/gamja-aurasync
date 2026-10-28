@@ -7,6 +7,7 @@ import * as store from "../store.js";
 import Membership from "./membership.js";
 import { pseudoMuet } from "../lib/mutisme.js";
 import { analyseKick } from "../lib/irc-errors.js";
+import { estServeur, nomServeur } from "../lib/serveur.js";
 
 function djb2(s) {
 	let hash = 5381;
@@ -96,7 +97,7 @@ function canFoldMessage(msg) {
 	return false;
 }
 
-class LogLine extends Component {
+export class LogLine extends Component {
 	shouldComponentUpdate(nextProps) {
 		return this.props.message !== nextProps.message || this.props.redacted !== nextProps.redacted;
 	}
@@ -110,7 +111,11 @@ class LogLine extends Component {
 		let onChannelClick = this.props.onChannelClick;
 		let onVerifyClick = this.props.onVerifyClick;
 
-		function createNick(nick) {
+		function createNick(nick, debut = true) {
+			// D-001 : le serveur ne se nomme pas, il signe « le t'Chat ».
+			if (estServeur(nick)) {
+				return html`<span class="nick nick-serveur">${nomServeur(debut)}</span>`;
+			}
 			return html`
 				<${Nick}
 					nick=${nick}
@@ -220,7 +225,7 @@ class LogLine extends Component {
 			// nomme Jeff.
 			let kick = analyseKick(msg.params[2], msg.prefix.name);
 			content = html`
-				${createNick(msg.params[1])} a été expulsé(e) par ${createNick(kick.auteur)} (${kick.raison})
+				${createNick(msg.params[1])} a été expulsé(e) par ${createNick(kick.auteur, false)} (${kick.raison})
 			`;
 			break;
 		case "MODE":
