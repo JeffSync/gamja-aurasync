@@ -102,7 +102,7 @@ const commands = [
 	{
 		name: "whois",
 		usage: "<pseudo>",
-		description: "Afficher les informations d'un membre",
+		description: "Afficher les informations d'une personne",
 		execute: (app, args) => {
 			let nick = args[0];
 			if (!nick) {

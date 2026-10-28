@@ -2640,7 +2640,7 @@ export default class App extends Component {
 					id="member-list"
 					class=${this.state.openPanels.memberList ? "expand" : ""}
 					role="complementary"
-					aria-label="Liste des membres"
+					aria-label="Liste des personnes"
 				>
 					<button
 						class="expander"

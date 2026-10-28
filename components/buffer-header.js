@@ -132,7 +132,7 @@ export default function BufferHeader(props) {
 				details.push(html`<abbr title=${desc}>non authentifié(e)</abbr>`);
 			}
 			if (props.user.operator) {
-				let desc = "Membre de l'équipe AuraSync, avec les droits d'administration.";
+				let desc = "Fait partie de l'équipe AuraSync, avec les droits d'administration.";
 				details.push(html`<abbr title=${desc}>opérateur du réseau</abbr>`);
 			}
 			if (props.user.bot) {
@@ -190,8 +190,8 @@ export default function BufferHeader(props) {
 				class="hdr-toggle hdr-toggle-right"
 				type="button"
 				onClick=${props.onToggleMemberList}
-				aria-label="Membres du salon"
-				title="Membres du salon"
+				aria-label="Personnes du salon"
+				title="Personnes du salon"
 			>
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 					stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
