@@ -846,13 +846,13 @@ export default class App extends Component {
 			msgUnread = Unread.HIGHLIGHT;
 
 			let channel = msg.params[1];
-			let notif = new Notification("Invitation to " + channel, {
-				body: msg.prefix.name + " has invited you to " + channel,
+			let notif = new Notification("Invitation dans " + channel, {
+				body: msg.prefix.name + " t'invite dans " + channel,
 				requireInteraction: true,
 				tag: "invite,server=" + serverID + ",from=" + msg.prefix.name + ",channel=" + channel,
 				actions: [{
 					action: "accept",
-					title: "Accept",
+					title: "Accepter",
 				}],
 			});
 			if (notif) {

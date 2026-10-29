@@ -173,6 +173,21 @@ test("groupe de six arrivées : trois pseudos, « et 3 autres », détail au cli
 	assert.match(ouvert[6], /Ana a rejoint le salon$/);
 });
 
+test("invitation reçue, en français", () => {
+	let server = { users: new Map(), cm, membershipModes: [] };
+	let buffer = { type: "server", name: "*", members: new Map(), redacted: new Set() };
+	let msg = {
+		command: "INVITE", prefix: { name: "Jeff" }, params: ["Kahen", "#équipe"], key: 1,
+		tags: { time: "2026-10-29T10:00:00.000Z" }, 
+	};
+	let l = lignes(new LogLine({
+		message: msg, buffer, server, redacted: false,
+		onNickClick() {}, onChannelClick() {}, onVerifyClick() {}, 
+	}).render());
+	assert.match(l[0], /Jeff t'invite dans #équipe$/);
+	assert.doesNotMatch(l[0], /invited|by/);
+});
+
 test("salon sans accueil : sa propre arrivée reste seule, pas dans le groupe", () => {
 	let { recoit, rendu } = salon();
 	recoit({ command: "JOIN", prefix: { name: "Kahen" }, params: ["#aide"] });

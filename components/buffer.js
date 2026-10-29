@@ -351,7 +351,7 @@ export class LogLine extends Component {
 			if (buf.type === BufferType.SERVER) {
 				lineClass = "talk";
 				content = html`
-					You have been invited to ${createChannel(channel)} by ${createNick(msg.prefix.name)}
+					${createNick(msg.prefix.name)} t'invite dans ${createChannel(channel)}
 				`;
 			} else {
 				content = html`
