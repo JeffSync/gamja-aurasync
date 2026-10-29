@@ -241,15 +241,17 @@ function insertMessage(list, msg) {
 }
 
 /*
- * Reglages en vigueur : ceux du navigateur, sauf l'affichage des arrivees
- * et departs, toujours replie (D-062). La fenetre des reglages est fermee
- * dans le t'Chat : un « masquer » memorise avant ne doit plus rien cacher.
+ * Reglages en vigueur : ceux du navigateur, sauf les arrivees et departs,
+ * toujours affiches une ligne par evenement (D-062, mise a jour du 29
+ * octobre). La fenetre des reglages est fermee dans le t'Chat : un
+ * « masquer » memorise avant ne doit plus rien cacher, ni couper la
+ * relecture des evenements (eventPlayback).
  */
 export function reglagesEffectifs(defauts, enregistres) {
 	return {
 		...defauts,
 		...enregistres,
-		bufferEvents: BufferEventsDisplayMode.FOLD,
+		bufferEvents: BufferEventsDisplayMode.EXPAND,
 	};
 }
 
@@ -266,7 +268,7 @@ export const State = {
 			bouncerNetworks: new Map(),
 			settings: {
 				secondsInTimestamps: true,
-				bufferEvents: BufferEventsDisplayMode.FOLD,
+				bufferEvents: BufferEventsDisplayMode.EXPAND,
 			},
 		};
 	},

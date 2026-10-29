@@ -15,7 +15,7 @@ globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} }
 const { State, SERVER_BUFFER } = await import("../state.js");
 const { HOTE_SERVICES } = await import("../lib/accueil.js");
 const { default: App } = await import("../components/app.js");
-const { default: Buffer, LogLine, FoldGroup } = await import("../components/buffer.js");
+const { default: Buffer, LogLine } = await import("../components/buffer.js");
 
 /* Texte visible d'un arbre preact (sans DOM), une ligne par div. */
 function texte(v) {
@@ -60,7 +60,7 @@ function salon() {
 	app.salonMutisme = App.prototype.salonMutisme;
 	let t = 0;
 	function recoit(msg) {
-		msg.tags = { ...(msg.tags || {}), time: new Date(Date.UTC(2026, 9, 29, 10, 0, t++)).toISOString() };
+		msg.tags = { ...(msg.tags || {}), time: (msg.tags && msg.tags.time) || new Date(Date.UTC(2026, 9, 29, 10, 0, t++)).toISOString() };
 		let dest = App.prototype.routeMessage.call(app, sid, msg);
 		app.state = { ...app.state, ...State.handleMessage(app.state, msg, sid, client) };
 		for (let name of dest) {
@@ -72,7 +72,7 @@ function salon() {
 		let buf = State.getBuffer(app.state, { server: sid, name });
 		let server = { ...app.state.servers.get(sid), users: new Map(), membershipModes: [], cm };
 		let b = new Buffer({
-			buffer: buf, server, settings: { bufferEvents: "fold" },
+			buffer: buf, server, settings: { bufferEvents: "expand" },
 			onNickClick() {}, onChannelClick() {}, onVerifyClick() {}, 
 		});
 		// Le separateur « Nouveaux messages » depend des accuses de lecture.
@@ -106,8 +106,10 @@ test("sa propre arrivée en premier, l'accueil juste dessous, puis les autres", 
 	assert.match(l[0], /Tu as rejoint #aide$/);
 	assert.match(l[1], /Bienvenue ! Lis la charte\.$/);
 	assert.doesNotMatch(l[1], /AuraBot|\[#aide\]/);
-	assert.match(l[2], /Léa et Bob ont rejoint le salon, Léa s'est déconnecté\(e\) détail$/);
-	assert.equal(l.length, 3);
+	assert.match(l[2], /^\[\d\d:\d\d\] Léa a rejoint le salon$/);
+	assert.match(l[3], /^\[\d\d:\d\d\] Bob a rejoint le salon$/);
+	assert.match(l[4], /^\[\d\d:\d\d\] Léa s'est déconnecté\(e\) \(connexion perdue\)$/);
+	assert.equal(l.length, 5);
 });
 
 test("arrivée et départ seuls : une ligne chacun, avec le motif traduit", () => {
@@ -147,32 +149,6 @@ test("l'historique ne rejoue ni sa propre arrivée ni l'accueil", () => {
 	assert.deepEqual(recoit({ command: "JOIN", prefix: { name: "Kahen" }, params: ["#aide"], batch }), []);
 });
 
-test("groupe de six arrivées : trois pseudos, « et 3 autres », détail au clic", () => {
-	let msgs = ["Kahen", "Léa", "Bob", "Max", "Zoé", "Ana"].map((nom, i) => ({
-		command: "JOIN", prefix: { name: nom }, params: ["#aide"], key: i + 1,
-		tags: { time: "2026-10-29T10:00:0" + i + ".000Z" },
-	}));
-	let server = { users: new Map(), cm, membershipModes: [] };
-	let buffer = { type: "channel", name: "#aide", members: new Map(), redacted: new Set() };
-	let props = {
-		messages: msgs, buffer, server, onNickClick() {},
-		renderLigne: (msg) => new LogLine({
-			message: msg, buffer, server, redacted: false,
-			onNickClick() {}, onChannelClick() {}, onVerifyClick() {}, 
-		}).render(),
-	};
-	let g = new FoldGroup(props);
-	let ferme = lignes(g.render());
-	assert.equal(ferme.length, 1);
-	assert.match(ferme[0], /Kahen, Léa, Bob et 3 autres ont rejoint le salon détail$/);
-	assert.equal(g.shouldComponentUpdate(props, { ouvert: true }), true, "le clic redessine le groupe");
-	g.state = { ouvert: true };
-	let ouvert = lignes(g.render());
-	assert.match(ouvert[0], /masquer$/);
-	assert.equal(ouvert.length, 7);
-	assert.match(ouvert[6], /Ana a rejoint le salon$/);
-});
-
 test("invitation reçue, en français", () => {
 	let server = { users: new Map(), cm, membershipModes: [] };
 	let buffer = { type: "server", name: "*", members: new Map(), redacted: new Set() };
@@ -188,28 +164,53 @@ test("invitation reçue, en français", () => {
 	assert.doesNotMatch(l[0], /invited|by/);
 });
 
-test("salon sans accueil : sa propre arrivée reste seule, pas dans le groupe", () => {
+test("une ligne par événement, jamais de groupe, même pour six arrivées", () => {
 	let { recoit, rendu } = salon();
 	recoit({ command: "JOIN", prefix: { name: "Kahen" }, params: ["#aide"] });
-	recoit({ command: "JOIN", prefix: { name: "Léa" }, params: ["#aide"] });
-	recoit({ command: "JOIN", prefix: { name: "Bob" }, params: ["#aide"] });
+	let noms = ["Léa", "Bob", "Max", "Zoé", "Ana", "Tom"];
+	for (let nom of noms) {
+		recoit({ command: "JOIN", prefix: { name: nom }, params: ["#aide"] });
+	}
 	let l = rendu();
 	assert.match(l[0], /Tu as rejoint #aide$/);
-	assert.match(l[1], /Léa et Bob ont rejoint le salon détail$/);
-	assert.equal(l.length, 2);
+	assert.equal(l.length, 1 + noms.length);
+	noms.forEach((nom, i) => assert.match(l[i + 1], new RegExp("^\\[\\d\\d:\\d\\d\\] " + nom + " a rejoint le salon$")));
+	assert.doesNotMatch(l.join("\n"), /autres?|détail|masquer|ont rejoint/);
 });
 
-test("salon affiché : une reconnexion disparaît, un départ suivi d'un retour reste", () => {
+test("aucune reconnexion masquée : déconnexion et retour en une seconde, deux lignes", () => {
 	let { recoit, rendu, presents } = salon();
 	recoit({ command: "JOIN", prefix: { name: "Kahen" }, params: ["#aide"] });
-	presents("Kahen", "Léa", "Bob");
-	recoit({ command: "PRIVMSG", prefix: { name: "Bob" }, params: ["#aide", "salut"] });
-	recoit({ command: "QUIT", prefix: { name: "Léa" }, params: ["Ping timeout: 180 seconds"] });
-	recoit({ command: "JOIN", prefix: { name: "Léa" }, params: ["#aide"] });
-	recoit({ command: "PART", prefix: { name: "Bob" }, params: ["#aide"] });
+	presents("Kahen", "Jeff", "Bob");
+	recoit({ command: "PART", prefix: { name: "Jeff" }, params: ["#aide", "Closing Window"] });
+	recoit({ command: "JOIN", prefix: { name: "Jeff" }, params: ["#aide"] });
+	recoit({ command: "QUIT", prefix: { name: "Bob" }, params: ["Ping timeout: 180 seconds"] });
 	recoit({ command: "JOIN", prefix: { name: "Bob" }, params: ["#aide"] });
 	let l = rendu();
+	assert.deepEqual(l.slice(1).map((x) => x.replace(/^\[\d\d:\d\d\] /, "")), [
+		"Jeff a quitté le salon",
+		"Jeff a rejoint le salon",
+		"Bob s'est déconnecté(e) (connexion perdue)",
+		"Bob a rejoint le salon",
+	]);
+});
+
+test("changement de pseudo : une ligne", () => {
+	let { recoit, rendu, presents } = salon();
+	recoit({ command: "JOIN", prefix: { name: "Kahen" }, params: ["#aide"] });
+	presents("Kahen", "Bob");
+	recoit({ command: "NICK", prefix: { name: "Bob" }, params: ["Bobby"] });
+	let l = rendu();
+	assert.match(l[1], /Bob est désormais connu\(e\) sous le nom de Bobby$/);
+});
+
+test("les séparateurs restent : changement de jour entre deux événements", () => {
+	let { recoit, rendu } = salon();
+	recoit({ command: "JOIN", prefix: { name: "Kahen" }, params: ["#aide"] });
+	recoit({ command: "JOIN", prefix: { name: "Léa" }, params: ["#aide"], tags: { time: "2026-10-30T12:00:00.000Z" } });
+	let l = rendu();
+	let jour = new Date("2026-10-30T12:00:00.000Z").toLocaleDateString([], { year: "numeric", month: "2-digit", day: "2-digit" });
 	assert.equal(l.length, 3);
-	assert.match(l[2], /Bob a quitté le salon, Bob a rejoint le salon détail$/);
-	assert.doesNotMatch(l[2], /Léa/);
+	assert.equal(l[1], jour);
+	assert.match(l[2], /Léa a rejoint le salon$/);
 });
