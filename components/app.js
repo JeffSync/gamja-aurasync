@@ -19,7 +19,7 @@ import Dialog from "./dialog.js";
 import MotifForm, { titreMotif } from "./motif-form.js";
 import { html, Component, createRef } from "../lib/index.js";
 import { strip as stripANSI } from "../lib/ansi.js";
-import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEventsDisplayMode, State, getServerName, receiptFromMessage, isReceiptBefore, isMessageBeforeReceipt, SettingsContext } from "../state.js";
+import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEventsDisplayMode, State, getServerName, receiptFromMessage, isReceiptBefore, isMessageBeforeReceipt, SettingsContext, reglagesEffectifs } from "../state.js";
 import commands from "../commands.js";
 import NickMenu from "./nick-menu.js";
 import WhoisPanel from "./whois-panel.js";
@@ -28,6 +28,7 @@ import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner, withoutChannel } from "../lib/kick.js";
 import { commandesSanction, demandeMotif } from "../lib/connexion.js";
 import { commandesParole, estMuet, peutRendreMuet, salonDeNotice } from "../lib/mutisme.js";
+import { lireAccueil } from "../lib/accueil.js";
 import { RESTREINT } from "../lib/shun.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
@@ -282,10 +283,7 @@ export default class App extends Component {
 		this.handleWindowFocus = this.handleWindowFocus.bind(this);
 		this.handleWindowHashChange = this.handleWindowHashChange.bind(this);
 
-		this.state.settings = {
-			...this.state.settings,
-			...store.settings.load(),
-		};
+		this.state.settings = reglagesEffectifs(this.state.settings, store.settings.load());
 
 		this.bufferStore = new store.Buffer();
 
@@ -805,7 +803,8 @@ export default class App extends Component {
 		}
 
 		let msgUnread = Unread.NONE;
-		if ((msg.command === "PRIVMSG" || msg.command === "NOTICE") && !isRead) {
+		// L'accueil d'un salon (D-062) n'est ni un message prive ni une mention.
+		if ((msg.command === "PRIVMSG" || msg.command === "NOTICE") && !isRead && !msg.accueil) {
 			let target = msg.params[0];
 			let text = msg.params[1];
 
@@ -896,8 +895,9 @@ export default class App extends Component {
 				receipts[ReceiptType.READ] = receiptFromMessage(msg);
 			}
 
-			// Don't show unread marker for my own messages
-			if (client.isMyNick(msg.prefix.name) && !isMessageBeforeReceipt(msg, prevReadReceipt)) {
+			// Don't show unread marker for my own messages, nor between my
+			// own arrival and the channel's welcome (D-062)
+			if ((client.isMyNick(msg.prefix.name) || msg.accueil) && !isMessageBeforeReceipt(msg, prevReadReceipt)) {
 				prevReadReceipt = receiptFromMessage(msg);
 			}
 
@@ -1095,6 +1095,15 @@ export default class App extends Component {
 					target = salon;
 				}
 			}
+			// D-062 : accueil du salon (ENTRYMSG), envoye par AuraBot. Range
+			// dans le salon, sous sa propre arrivee, pas dans l'onglet masque.
+			if (!chatHistoryBatch && client.isMyNick(msg.params[0])) {
+				let accueil = this.accueilDe(serverID, msg);
+				if (accueil) {
+					msg.accueil = accueil;
+					return [accueil.salon];
+				}
+			}
 			if (!openNewBuffer && !State.getBuffer(this.state, { server: serverID, name: target })) {
 				target = SERVER_BUFFER;
 			}
@@ -1105,7 +1114,13 @@ export default class App extends Component {
 			if (!client.isMyNick(msg.prefix.name)) {
 				return [channel];
 			}
-			return [];
+			// D-062 : sa propre arrivee, en direct (« Tu as rejoint #salon »).
+			// Celles de l'historique ne se rejouent pas.
+			if (chatHistoryBatch) {
+				return [];
+			}
+			msg.arriveeSoi = true;
+			return [channel];
 		case "PART":
 			channel = msg.params[0];
 			return [channel];
@@ -1483,6 +1498,19 @@ export default class App extends Component {
 	}
 
 	/* Salon d'une NOTICE de mutisme recue d'un de ses moderateurs, ou null. */
+	/* Accueil d'un salon ou l'on est : { salon, texte } ou null (lib/accueil.js). */
+	accueilDe(serverID, msg) {
+		let client = this.clients.get(serverID);
+		return lireAccueil(msg, {
+			cm: (s) => client.cm(s),
+			estMoi: (pseudo) => client.isMyNick(pseudo),
+			salonRejoint: (nom) => {
+				let buf = State.getBuffer(this.state, { server: serverID, name: nom });
+				return buf && buf.type === BufferType.CHANNEL && buf.joined ? buf.name : null;
+			},
+		});
+	}
+
 	salonMutisme(serverID, msg) {
 		if (!msg.prefix) {
 			return null;
@@ -2429,7 +2457,7 @@ export default class App extends Component {
 
 	handleSettingsChange(settings) {
 		store.settings.put(settings);
-		this.setState({ settings });
+		this.setState({ settings: reglagesEffectifs(settings, null) });
 	}
 
 	handleSettingsDisconnect() {

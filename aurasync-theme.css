@@ -1076,3 +1076,39 @@ button:active {
 	font-size: 11px;
 	white-space: nowrap;
 }
+
+/* Arrivees et accueil (D-062). Sa propre arrivee, discrete ; l'accueil du
+   salon juste dessous, encadre, sans expediteur. */
+#buffer .logline.arrivee-soi {
+	color: var(--aura-text-dim);
+	font-style: italic;
+}
+#buffer .logline.accueil {
+	margin: 2px 0 6px;
+	padding: 6px 10px;
+	border-left: 3px solid var(--aura-cyan);
+	border-radius: 6px;
+	background: rgba(34, 211, 238, 0.08);
+	color: var(--aura-text);
+}
+#buffer .fold-autres,
+#buffer .fold-bascule {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--aura-cyan);
+	font: inherit;
+	cursor: pointer;
+}
+#buffer .fold-autres {
+	text-decoration: underline dotted;
+}
+#buffer .fold-bascule {
+	font-size: 0.85em;
+	opacity: 0.8;
+}
+#buffer .fold-detail {
+	margin: 4px 0 2px 1.5em;
+	padding-left: 8px;
+	border-left: 1px solid var(--aura-stroke);
+}

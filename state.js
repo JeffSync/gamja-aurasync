@@ -1,6 +1,7 @@
 import * as irc from "./lib/irc.js";
 import Client from "./lib/client.js";
 import { createContext } from "./lib/index.js";
+import { placerAccueil } from "./lib/accueil.js";
 
 export const SERVER_BUFFER = "*";
 
@@ -217,6 +218,9 @@ function updateMembership(membership, letter, add, client) {
 function insertMessage(list, msg) {
 	if (list.length === 0) {
 		return [msg];
+	} else if (msg.accueil) {
+		// D-062 : l'accueil d'un salon, juste sous sa propre arrivee.
+		return placerAccueil(list, msg);
 	} else if (!irc.findBatchByType(msg, "chathistory") || list[list.length - 1].tags.time <= msg.tags.time) {
 		return list.concat(msg);
 	}
@@ -234,6 +238,19 @@ function insertMessage(list, msg) {
 	list = [...list];
 	list.splice(insertBefore, 0, msg);
 	return list;
+}
+
+/*
+ * Reglages en vigueur : ceux du navigateur, sauf l'affichage des arrivees
+ * et departs, toujours replie (D-062). La fenetre des reglages est fermee
+ * dans le t'Chat : un « masquer » memorise avant ne doit plus rien cacher.
+ */
+export function reglagesEffectifs(defauts, enregistres) {
+	return {
+		...defauts,
+		...enregistres,
+		bufferEvents: BufferEventsDisplayMode.FOLD,
+	};
 }
 
 let lastServerID = 0;

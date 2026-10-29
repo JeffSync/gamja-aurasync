@@ -8,6 +8,7 @@ import Membership from "./membership.js";
 import { pseudoMuet } from "../lib/mutisme.js";
 import { analyseKick } from "../lib/irc-errors.js";
 import { estServeur, nomServeur } from "../lib/serveur.js";
+import { morceauxListe, motifDepart, resumerGroupe, retirerReconnexions, texteAutres } from "../lib/evenements.js";
 
 function djb2(s) {
 	let hash = 5381;
@@ -87,6 +88,10 @@ function Timestamp(props) {
  * folded.
  */
 function canFoldMessage(msg) {
+	// D-062 : sa propre arrivee reste seule, l'accueil vient juste dessous.
+	if (msg.arriveeSoi) {
+		return false;
+	}
 	switch (msg.command) {
 	case "JOIN":
 	case "PART":
@@ -95,6 +100,12 @@ function canFoldMessage(msg) {
 		return true;
 	}
 	return false;
+}
+
+/* « (connexion perdue) » apres un depart, ou rien (lib/evenements.js). */
+function motif(msg) {
+	let m = motifDepart(msg.command, msg.params[msg.command === "PART" ? 1 : 0], msg.prefix.name);
+	return m ? " (" + m + ")" : "";
 }
 
 export class LogLine extends Component {
@@ -138,6 +149,12 @@ export class LogLine extends Component {
 		switch (msg.command) {
 		case "NOTICE":
 		case "PRIVMSG":
+			// D-062 : accueil du salon, sans « [#salon] » ni expediteur.
+			if (msg.accueil) {
+				lineClass = "accueil";
+				content = html`${linkify(stripANSI(msg.accueil.texte), onChannelClick)}`;
+				break;
+			}
 			target = msg.params[0];
 			let text = msg.params[1];
 
@@ -199,18 +216,19 @@ export class LogLine extends Component {
 			}
 			break;
 		case "JOIN":
+			if (msg.arriveeSoi) {
+				lineClass = "arrivee-soi";
+				content = html`Tu as rejoint ${msg.params[0]}`;
+				break;
+			}
 			content = html`
 				${createNick(msg.prefix.name)} a rejoint le salon
 			`;
 			break;
 		case "PART":
-			content = html`
-				${createNick(msg.prefix.name)} a quitté le salon
-			`;
-			break;
 		case "QUIT":
 			content = html`
-				${createNick(msg.prefix.name)} s'est déconnecté(e)
+				${createNick(msg.prefix.name)} ${msg.command === "PART" ? "a quitté le salon" : "s'est déconnecté(e)"}${motif(msg)}
 			`;
 			break;
 		case "NICK":
@@ -425,37 +443,35 @@ export class LogLine extends Component {
 	}
 }
 
-function createNickList(nicks, createNick) {
-	if (nicks.length === 0) {
-		return null;
-	} else if (nicks.length === 1) {
-		return createNick(nicks[0]);
+/*
+ * Arrivees, departs et deconnexions consecutifs, replies en une ligne
+ * (D-062) : « Kahen, Léa, Bob et 2 autres ont rejoint le salon ». Au-dela
+ * de trois pseudos, « et N autres ». Le detail, une ligne par evenement
+ * avec son motif, s'ouvre au clic.
+ */
+export class FoldGroup extends Component {
+	constructor(props) {
+		super(props);
+		this.state = { ouvert: false };
+		this.basculer = this.basculer.bind(this);
 	}
 
-	let l = nicks.slice(0, nicks.length - 1).map((nick, i) => {
-		if (i === 0) {
-			return createNick(nick);
-		} else {
-			return [", ", createNick(nick)];
-		}
-	});
-
-	l.push(" and ");
-	l.push(createNick(nicks[nicks.length - 1]));
-
-	return l;
-}
-
-class FoldGroup extends Component {
-	shouldComponentUpdate(nextProps) {
+	shouldComponentUpdate(nextProps, nextState) {
 		return this.props.messages[0] !== nextProps.messages[0] ||
-			this.props.messages[this.props.messages.length - 1] !== nextProps.messages[nextProps.messages.length - 1];
+			this.props.messages[this.props.messages.length - 1] !== nextProps.messages[nextProps.messages.length - 1] ||
+			this.state.ouvert !== nextState.ouvert;
+	}
+
+	basculer(event) {
+		event.preventDefault();
+		this.setState((state) => ({ ouvert: !state.ouvert }));
 	}
 
 	render() {
 		let msgs = this.props.messages;
 		let buf = this.props.buffer;
 		let server = this.props.server;
+		let ouvert = this.state.ouvert;
 
 		let onNickClick = this.props.onNickClick;
 		function createNick(nick) {
@@ -468,59 +484,32 @@ class FoldGroup extends Component {
 			`;
 		}
 
-		let byCommand = {
-			"JOIN": [],
-			"PART": [],
-			"QUIT": [],
-			"NICK": [],
-		};
-		msgs.forEach((msg) => {
-			byCommand[msg.command].push(msg);
-		});
-
-		let first = true;
+		let basculer = this.basculer;
 		let content = [];
-		["JOIN", "PART", "QUIT"].forEach((cmd) => {
-			if (byCommand[cmd].length === 0) {
-				return;
-			}
-
-			let nicks = new Set(byCommand[cmd].map((msg) => msg.prefix.name));
-
-			let plural = nicks.size > 1;
-			let action;
-			switch (cmd) {
-			case "JOIN":
-				action = plural ? "have joined" : "has joined";
-				break;
-			case "PART":
-				action = plural ? "have left" : "has left";
-				break;
-			case "QUIT":
-				action = plural ? "have quit" : "has quit";
-				break;
-			}
-
-			if (first) {
-				first = false;
-			} else {
+		for (let { liste, verbe } of resumerGroupe(msgs)) {
+			if (content.length > 0) {
 				content.push(", ");
 			}
+			for (let morceau of morceauxListe(liste)) {
+				if (typeof morceau === "string") {
+					content.push(morceau);
+				} else if (morceau.pseudo !== undefined) {
+					content.push(createNick(morceau.pseudo));
+				} else {
+					content.push(html`
+						<button type="button" class="fold-autres" aria-expanded=${ouvert} onClick=${basculer}>${texteAutres(morceau.autres)}</button>
+					`);
+				}
+			}
+			content.push(" " + verbe);
+		}
 
-			content.push(createNickList([...nicks], createNick));
-			content.push(" " + action);
-		});
-
-		byCommand["NICK"].forEach((msg) => {
-			if (first) {
-				first = false;
-			} else {
+		msgs.filter((msg) => msg.command === "NICK").forEach((msg) => {
+			if (content.length > 0) {
 				content.push(", ");
 			}
-
-			let newNick = msg.params[0];
 			content.push(html`
-				${createNick(msg.prefix.name)} est désormais connu(e) sous le nom de ${createNick(newNick)}
+				${createNick(msg.prefix.name)} est désormais connu(e) sous le nom de ${createNick(msg.params[0])}
 			`);
 		});
 
@@ -540,11 +529,25 @@ class FoldGroup extends Component {
 			];
 		}
 
+		let detail = null;
+		if (ouvert) {
+			detail = html`
+				<div class="fold-detail" role="list">
+					${msgs.map((msg) => this.props.renderLigne(msg))}
+				</div>
+			`;
+		}
+
 		return html`
-			<div class="logline" data-key=${msgs[0].key} role="listitem">
+			<div class="logline fold" data-key=${msgs[0].key} role="listitem">
 				${timestamp}
 				${" "}
 				${content}
+				${" "}
+				<button type="button" class="fold-bascule" aria-expanded=${ouvert} onClick=${basculer}>
+					${ouvert ? "masquer" : "détail"}
+				</button>
+				${detail}
 			</div>
 		`;
 	}
@@ -789,24 +792,11 @@ export default class Buffer extends Component {
 			}
 			msgs = mergedMsgs;
 
-			// Filter out PART → JOIN pairs, as well as no-op NICKs from previous step
-			let partIndexes = new Map();
-			let keep = [];
-			msgs.forEach((msg, i) => {
-				if (msg.command === "PART" || msg.command === "QUIT") {
-					partIndexes.set(msg.prefix.name, i);
-				}
-				if (msg.command === "JOIN" && partIndexes.has(msg.prefix.name)) {
-					keep[partIndexes.get(msg.prefix.name)] = false;
-					partIndexes.delete(msg.prefix.name);
-					keep.push(false);
-				} else if (msg.command === "NICK" && msg.prefix.name === msg.params[0]) {
-					keep.push(false);
-				} else {
-					keep.push(true);
-				}
-			});
-			msgs = msgs.filter((msg, i) => keep[i]);
+			// D-062 : seules les reconnexions (deconnexion puis retour en moins
+			// d'une minute) sont retirees, et les NICK sans effet. Gamja
+			// retirait toute paire depart et retour : dans un salon calme, ou
+			// tout est consecutif, la plupart des evenements disparaissaient.
+			msgs = retirerReconnexions(msgs, server.cm);
 
 			if (msgs.length === 0) {
 				return null;
@@ -820,6 +810,7 @@ export default class Buffer extends Component {
 					buffer=${buf}
 					server=${server}
 					onNickClick=${onNickClick}
+					renderLigne=${createLogLine}
 				/>
 			`;
 		}
