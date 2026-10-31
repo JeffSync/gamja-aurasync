@@ -192,6 +192,26 @@ const KICKS_ANOPE = [
 	["AuraBot", "Stop flooding!", "trop de messages en peu de temps"],
 	["AuraBot", "Stop repeating yourself!", "messages répétés"],
 	["AuraBot", "Don't use AMSGs!", "même message envoyé dans plusieurs salons"],
+	/* Les memes en francais d'Anope (language/anope.fr_FR.po, 2.0.20). */
+	["AuraBot", "Arrêtez d'envoyer autant de messages !", "trop de messages en peu de temps"],
+	["AuraBot", "Arrêtez de vous répéter !", "messages répétés"],
+	["AuraBot", "Cessez d'utiliser tant de majuscules !", "trop de majuscules"],
+	["AuraBot", "Surveillez votre langage !", "langage inapproprié"],
+	["AuraBot", "Ne dites pas bite sur ce canal !", "mot interdit dans ce salon"],
+	["AuraBot", "N'utilisez pas de caractères gras sur ce canal !", "pas de gras dans ce salon"],
+	["AuraBot", "N'utilisez pas de couleurs sur ce canal !", "pas de couleurs dans ce salon"],
+	["AuraBot", "N'utilisez pas de caractères inversés sur ce canal !", "pas de texte inversé dans ce salon"],
+	["AuraBot", "N'utilisez pas d'italique sur le canal !", "pas d'italique dans ce salon"],
+	["AuraBot", "N'utilisez pas de caractères soulignés sur ce canal !", "pas de soulignement dans ce salon"],
+	["AuraBot", "N'utilisez pas de AMSG !", "même message envoyé dans plusieurs salons"],
+	["SalonSync", "Vous n'êtes pas autorisé à être sur ce canal.", "salon réservé"],
+	["SalonSync", "L'utilisateur a été banni du canal.", "banni(e) du salon"],
+	["SalonSync", "Ce canal a été suspendu.", "salon suspendu"],
+	["SalonSync", "Ce canal ne peut pas être utilisé.", "salon suspendu"],
+	["OperSync", "Ce canal a été interdit : spam", "salon interdit"],
+	/* Apostrophe courbe, espace insecable : la meme raison. */
+	["AuraBot", "Arrêtez d’envoyer autant de messages\u00a0!", "trop de messages en peu de temps"],
+	["AuraBot", "Cessez d’utiliser tant de majuscules !", "trop de majuscules"],
 ];
 
 test("KICK : raisons par défaut d'Anope traduites, auteur inchangé", () => {
@@ -220,7 +240,18 @@ test("KICK signé (SIGNKICK) : le vrai auteur est le pseudo de la signature", ()
 	assert.deepEqual(analyseKick("SSLONLY enforced by Jeff", "ChanServ"), { auteur: "Jeff", raison: "salon réservé aux connexions sécurisées" });
 	assert.deepEqual(analyseKick("BANS enforced by Jeff", "ChanServ"), { auteur: "Jeff", raison: "banni(e) du salon" });
 	assert.deepEqual(analyseKick("LIMIT enforced by Jeff", "ChanServ"), { auteur: "Jeff", raison: "salon complet" });
+	/* Les memes en francais d'Anope. */
+	assert.deepEqual(analyseKick("RESTRICTED appliqué par Jeff", "SalonSync"), { auteur: "Jeff", raison: "salon réservé" });
+	assert.deepEqual(analyseKick("REGONLY appliqué par Jeff", "SalonSync"), { auteur: "Jeff", raison: "salon réservé aux comptes identifiés" });
+	assert.deepEqual(analyseKick("SSLONLY appliqué par Jeff", "SalonSync"), { auteur: "Jeff", raison: "salon réservé aux connexions sécurisées" });
+	assert.deepEqual(analyseKick("Bans appliqués par Jeff", "SalonSync"), { auteur: "Jeff", raison: "banni(e) du salon" });
+	assert.deepEqual(analyseKick("LIMIT appliquée par Jeff", "SalonSync"), { auteur: "Jeff", raison: "salon complet" });
 	assert.equal(journal.mock.callCount(), 0);
+});
+
+test("KICK : ENFORCE d'un mode inconnu, en français : tu", () => {
+	assert.deepEqual(analyseKick("PEUIMPORTE appliqué par Jeff", "SalonSync"), { auteur: "SalonSync", raison: MOTIF });
+	assert.equal(journal.mock.callCount(), 1);
 });
 
 test("KICK : AuraBot est un service, son anglais inconnu ne s'affiche pas", () => {
