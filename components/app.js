@@ -26,6 +26,7 @@ import WhoisPanel from "./whois-panel.js";
 import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner, withoutChannel } from "../lib/kick.js";
+import { expulsionAuto, cleSalon, noterExpulsion, oublierExpulsion, refusApresExpulsion } from "../lib/sanction-auto.js";
 import { commandesSanction, demandeMotif } from "../lib/connexion.js";
 import { commandesParole, estMuet, peutRendreMuet, salonDeNotice } from "../lib/mutisme.js";
 import { lireAccueil } from "../lib/accueil.js";
@@ -243,6 +244,10 @@ export default class App extends Component {
 
 	constructor(props) {
 		super(props);
+
+		// D-062 : derniere expulsion automatique d'AuraBot par salon, pour
+		// expliquer le refus 474 qui suit. Memoire de session seulement.
+		this.expulsionsAuto = new Map();
 
 		this.handleJoinSubmit = this.handleJoinSubmit.bind(this);
 		this.handleBufferListClick = this.handleBufferListClick.bind(this);
@@ -1331,6 +1336,7 @@ export default class App extends Component {
 
 			if (client.isMyNick(msg.prefix.name)) {
 				this.syncBufferUnread(serverID, channel);
+				oublierExpulsion(this.expulsionsAuto, cleSalon(serverID, channel, client.cm));
 			}
 			if (channel === this.switchToChannel) {
 				this.switchBuffer({ server: serverID, name: channel });
@@ -1481,7 +1487,7 @@ export default class App extends Component {
 			// test, le refus partait dans l'onglet serveur masque, en silence.
 			if ((irc.isError(msg.command) && msg.command !== irc.ERR_NOMOTD) || isRefusal(msg.command)) {
 				let description = msg.params[msg.params.length - 1];
-				this.showError(translateError(msg.command, description));
+				this.showError(this.refusBanAuto(serverID, msg) || translateError(msg.command, description));
 			}
 		}
 
@@ -1555,7 +1561,27 @@ export default class App extends Component {
 			window.history.replaceState(null, "", pathname + search + hash);
 		}
 
+		let motif = expulsionAuto(msg.prefix.name, msg.params[2]);
+		if (motif) {
+			noterExpulsion(this.expulsionsAuto, cleSalon(serverID, channel, client.cm), motif, Date.now());
+		}
+
 		this.showError(kickBanner(channel, msg.prefix.name, msg.params[2]));
+	}
+
+	// Refus 474 juste apres une expulsion automatique d'AuraBot dans ce
+	// salon : le ban automatique, sa duree et son motif (D-062). Sinon null,
+	// et le texte ordinaire s'applique.
+	refusBanAuto(serverID, msg) {
+		if (!msg || msg.command !== irc.ERR_BANNEDFROMCHAN || !msg.params || !msg.params[1]) {
+			return null;
+		}
+		let client = this.clients.get(serverID);
+		if (!client) {
+			return null;
+		}
+		let salon = msg.params[1];
+		return refusApresExpulsion(this.expulsionsAuto, cleSalon(serverID, salon, client.cm), salon, Date.now());
 	}
 
 	async fetchBacklog(serverID) {
@@ -1919,7 +1945,7 @@ export default class App extends Component {
 		} else if (client.isChannel(target)) {
 			this.switchToChannel = target;
 			client.join(target, password).catch((err) => {
-				this.showError(err);
+				this.showError((err && this.refusBanAuto(serverID, err.msg)) || err);
 			});
 		} else {
 			this.whoUserBuffer(target, serverID);

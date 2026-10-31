@@ -5,8 +5,13 @@
  * serveur, masque.
  */
 
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
+
+// Le rendu compare chaque message au jour courant (separateur de date) :
+// l'horloge est figee au jour des messages, sinon le test change avec la
+// date.
+mock.timers.enable({ apis: ["Date"], now: Date.UTC(2026, 9, 29, 12) });
 
 // app.js lit config.json et le navigateur au chargement.
 globalThis.window = globalThis.window || {};

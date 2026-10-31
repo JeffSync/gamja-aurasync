@@ -9,6 +9,7 @@ import { pseudoMuet } from "../lib/mutisme.js";
 import { analyseKick } from "../lib/irc-errors.js";
 import { estServeur, nomServeur } from "../lib/serveur.js";
 import { motifDepart } from "../lib/evenements.js";
+import { cibleBan, expulsesAvant, verbeBan } from "../lib/ban.js";
 
 function djb2(s) {
 	let hash = 5381;
@@ -247,8 +248,19 @@ export class LogLine extends Component {
 							: html`${user} a rendu la parole à ${createNick(pseudoMuet(arg))}`;
 						break;
 					}
-					verb = plusMinus === "+" ? "a banni" : "a débanni";
-					content = html`${user} ${verb} ${arg}`;
+					// D-062 : jamais le masque brut. La personne visee si le
+					// masque la designe (expulsee juste avant, ou seule du
+					// salon a correspondre), sinon « une adresse ».
+					let index = buf.messages ? buf.messages.indexOf(msg) : -1;
+					let cible = cibleBan(arg, {
+						expulses: index >= 0 ? expulsesAvant(buf.messages, index) : [],
+						presents: buf.members ? Array.from(buf.members.keys()) : [],
+						personne: (pseudo) => server.users.get(pseudo),
+					});
+					verb = verbeBan(plusMinus, cible);
+					content = cible
+						? html`${user} ${verb} ${createNick(cible, false)}`
+						: html`${user} ${verb}`;
 					break;
 				case "e":
 					verb = plusMinus === "+" ? "a ajouté" : "a retiré";
