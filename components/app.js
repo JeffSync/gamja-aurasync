@@ -27,6 +27,7 @@ import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner, withoutChannel } from "../lib/kick.js";
 import { expulsionAuto, cleSalon, noterExpulsion, oublierExpulsion, refusApresExpulsion } from "../lib/sanction-auto.js";
+import { marquerHistorique } from "../lib/historique.js";
 import { commandesSanction, demandeMotif } from "../lib/connexion.js";
 import { commandesParole, estMuet, peutRendreMuet, salonDeNotice } from "../lib/mutisme.js";
 import { lireAccueil } from "../lib/accueil.js";
@@ -776,6 +777,9 @@ export default class App extends Component {
 	}
 
 	prepareChatMessage(serverID, msg) {
+		// D-062 : un message de l'historique n'est jamais une mention.
+		marquerHistorique(msg);
+
 		// Treat server-wide broadcasts as highlights. They're sent by server
 		// operators and can contain important information.
 		if (msg.isHighlight === undefined) {
@@ -809,7 +813,8 @@ export default class App extends Component {
 
 		let msgUnread = Unread.NONE;
 		// L'accueil d'un salon (D-062) n'est ni un message prive ni une mention.
-		if ((msg.command === "PRIVMSG" || msg.command === "NOTICE") && !isRead && !msg.accueil) {
+		// L'historique non plus : il ne notifie jamais.
+		if ((msg.command === "PRIVMSG" || msg.command === "NOTICE") && !isRead && !msg.accueil && !msg.historique) {
 			let target = msg.params[0];
 			let text = msg.params[1];
 

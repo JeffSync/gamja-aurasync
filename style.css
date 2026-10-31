@@ -537,6 +537,13 @@ details summary[role="button"] {
 #buffer .unread-separator {
 	color: #ff3535;
 }
+#buffer .history-separator {
+	color: #757575;
+	margin: 0.5em 0;
+}
+#buffer .history-separator::before, #buffer .history-separator::after {
+	border-color: #bbb;
+}
 #buffer .unread-separator::before, #buffer .unread-separator::after {
 	border-color: #ff3535;
 }
@@ -718,6 +725,10 @@ ul.switcher-list .server {
 	}
 	#buffer .unread-separator {
 		color: var(--green);
+	}
+	#buffer .history-separator::before,
+	#buffer .history-separator::after {
+		border-color: #555;
 	}
 	#buffer .unread-separator::before,
 	#buffer .unread-separator::after {

@@ -10,6 +10,7 @@ import { analyseKick } from "../lib/irc-errors.js";
 import { estServeur, nomServeur } from "../lib/serveur.js";
 import { motifDepart } from "../lib/evenements.js";
 import { cibleBan, expulsesAvant, verbeBan } from "../lib/ban.js";
+import { avantHistorique, SEPARATEUR_HISTORIQUE } from "../lib/historique.js";
 
 function djb2(s) {
 	let hash = 5381;
@@ -582,6 +583,11 @@ class DateSeparator extends Component {
 	}
 }
 
+// D-062 : au-dessus des messages ecrits avant son arrivee.
+function HistorySeparator(props) {
+	return html`<div class="separator history-separator" role="separator">${SEPARATEUR_HISTORIQUE}</div>`;
+}
+
 function UnreadSeparator(props) {
 	return html`<div class="separator unread-separator" role="separator">Nouveaux messages</div>`;
 }
@@ -643,6 +649,7 @@ export default class Buffer extends Component {
 		let hasUnreadSeparator = false;
 		let prevDate = new Date();
 		let lastMonitor = null;
+		let precedent;
 		buf.messages.forEach((msg) => {
 			let sep = [];
 
@@ -653,6 +660,11 @@ export default class Buffer extends Component {
 					return;
 				}
 			}
+
+			if (avantHistorique(precedent, msg)) {
+				sep.push(html`<${HistorySeparator} key=${"historique-" + msg.key}/>`);
+			}
+			precedent = msg;
 
 			if (!hasUnreadSeparator && buf.type !== BufferType.SERVER && !isMessageBeforeReceipt(msg, buf.prevReadReceipt)) {
 				sep.push(html`<${UnreadSeparator} key="unread"/>`);
