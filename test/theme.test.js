@@ -249,6 +249,16 @@ test("texte de la barre : 4,5:1 dans chaque etat", () => {
 	auMoins(couleur(ETAT("#chan-browse", "color")).rgb, BARRE, 4.5, "bouton « Salons »");
 });
 
+test("un nom de salon trop long passe a la ligne, sans etre coupe", () => {
+	let nom = declsTheme(".chan-name");
+	assert.equal(nom.get("white-space"), undefined);
+	assert.equal(nom.get("text-overflow"), undefined);
+	assert.equal(nom.get("overflow-wrap"), "anywhere");
+	// L'icone (20 px) reste sur la premiere ligne (20 px)
+	assert.equal(ETAT("#buffer-list li a", "align-items"), "flex-start");
+	assert.equal(ETAT("#buffer-list li a", "line-height"), "20px");
+});
+
 test("salon actif : barre cyan de 3 px a 3:1", () => {
 	let ombre = ETAT("#buffer-list li.active a", "box-shadow");
 	assert.match(ombre, /^inset 3px 0 0 /);

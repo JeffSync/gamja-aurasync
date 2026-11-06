@@ -252,7 +252,7 @@ button:active {
 	flex-direction: column;
 }
 /* Largeur fixe : un nom qui passe en gras (non lu, actif) ne fait plus
-   bouger toute la mise en page ; un nom trop long finit en « … ». */
+   bouger toute la mise en page ; un nom trop long passe a la ligne. */
 #buffer-list {
 	width: 240px;
 }
@@ -411,18 +411,20 @@ button:active {
 
 /* Entrees de salon : icone + diese + libelle */
 
+/* Un nom trop long pour la barre (« Provence-Alpes-Côte d'Azur ») passe
+   sur deux lignes au lieu d'etre coupe : l'icone reste alignee sur la
+   premiere (flex-start, icone haute d'une ligne). */
 #buffer-list li a {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: 9px;
 	line-height: 20px;
 	color: var(--aura-text-soft);
 	background-color: transparent;
 }
 .chan-name {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 .chan-hash {
 	color: var(--aura-hash);
