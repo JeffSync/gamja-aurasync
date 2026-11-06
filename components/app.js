@@ -38,6 +38,7 @@ import { RESTREINT } from "../lib/shun.js";
 import { natureMessage, compterPourToi, totalPourToi } from "../lib/pour-toi.js";
 import { contenuNotification, doitNotifier, optionsNotification, tagConversation, etatPermission, peutProposer, CLE_REFUS } from "../lib/notifications.js";
 import { creerNotifier, enregistrerServiceWorker } from "../lib/notifier.js";
+import { refusSuspension } from "../lib/suspension.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -68,6 +69,16 @@ const configPromise = fetch("./config.json")
 	.then((resp) => {
 		if (resp.ok) {
 			return resp.json();
+		}
+		// Compte suspendu sur le site : ecran de fermeture (D-067)
+		if (resp.status === 403) {
+			return resp.json().catch(() => null).then((corps) => {
+				let refus = refusSuspension(resp.status, corps);
+				if (!refus) {
+					console.error("Failed to fetch config: HTTP error:", resp.status, resp.statusText);
+				}
+				return refus || {};
+			});
 		}
 		if (resp.status !== 404) {
 			console.error("Failed to fetch config: HTTP error:", resp.status, resp.statusText);
@@ -226,6 +237,8 @@ export default class App extends Component {
 		error: null,
 		/* Fin de connexion sans reconnexion : { message, bouton }. */
 		fin: null,
+		// Compte suspendu sur le site : { message } (D-067)
+		suspendu: null,
 		restreint: false,
 		openPanels: {
 			bufferList: false,
@@ -343,6 +356,12 @@ export default class App extends Component {
 	 *   done in fillConnectParams)
 	 */
 	async handleConfig(config) {
+		// Suspendu(e) : ni connexion ni formulaire, l'ecran de fermeture
+		if (config.suspendu) {
+			this.setState({ loading: false, connectForm: false, suspendu: config.suspendu });
+			return;
+		}
+
 		let connectParams = { ...this.state.connectParams };
 
 		if (typeof config.server.url === "string") {
@@ -392,8 +411,15 @@ export default class App extends Component {
 				...autoconnect,
 				autoconnect: true,
 			};
-			if (freshSaslPlain) {
-				connectParams.saslPlain = freshSaslPlain;
+			// Jamais d'identifiants gardes dans le navigateur : seulement ceux
+			// de config.json. Le formulaire de Gamja, retire le 26 octobre
+			// (f2b49d7), pouvait les y enregistrer ; repris, ils ouvriraient
+			// le t'Chat a une session expiree ou a un compte suspendu (D-067).
+			connectParams.saslPlain = freshSaslPlain || null;
+			if (autoconnect.saslPlain) {
+				let sansIdentifiants = { ...autoconnect };
+				delete sansIdentifiants.saslPlain;
+				store.autoconnect.put(sansIdentifiants);
 			}
 			if (freshNick) {
 				connectParams.nick = freshNick;
@@ -2715,6 +2741,20 @@ export default class App extends Component {
 		let activeClient = null;
 		if (activeBuffer) {
 			activeClient = this.clients.get(activeBuffer.server);
+		}
+
+		// Compte suspendu sur le site (D-067) : le t'Chat est ferme, sans
+		// bouton de reconnexion.
+		if (this.state.suspendu) {
+			return html`
+				<section id="connect">
+					<form onSubmit=${(event) => event.preventDefault()}>
+						<h2>t'Chat</h2>
+						<p role="status">${this.state.suspendu.message}</p>
+						<p><a href="/">Revenir à AuraSync</a></p>
+					</form>
+				</section>
+			`;
 		}
 
 		// Le serveur a mis fin a la connexion, ou le pseudo reste pris : meme
