@@ -2,9 +2,64 @@
  * Theme AuraSync pour le t'Chat.
  * Fichier separe de style.css pour survivre aux mises a jour upstream.
  * Charge apres style.css : redefinit les variables et ajoute nos regles.
+ *
+ * Le t'Chat est toujours sombre (D-066) : aucune regle de ce fichier ne
+ * depend de prefers-color-scheme, et chaque regle que style.css place sous
+ * @media (prefers-color-scheme: …) est redefinie ici, au meme selecteur.
+ * test/theme.test.js y veille, contrastes compris.
  */
 
+/* ── Polices du site (D-066) ─────────────────────────────────────────── */
+/* Hanken Grotesk (texte) et Sora (titres), fontsource 5.2.8, copiees du
+   site : servies depuis /tchat-app/, rien d'une autre origine. Licence
+   OFL : fonts/OFL-*.txt. Decoupage latin / latin etendu de fontsource. */
+
+@font-face {
+	font-family: "Hanken Grotesk Variable";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 100 900;
+	src: url("./fonts/hanken-grotesk-latin-ext-wght-normal.woff2") format("woff2-variations");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+	font-family: "Hanken Grotesk Variable";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 100 900;
+	src: url("./fonts/hanken-grotesk-latin-wght-normal.woff2") format("woff2-variations");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: "Sora Variable";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 100 800;
+	src: url("./fonts/sora-latin-ext-wght-normal.woff2") format("woff2-variations");
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+	font-family: "Sora Variable";
+	font-style: normal;
+	font-display: swap;
+	font-weight: 100 800;
+	src: url("./fonts/sora-latin-wght-normal.woff2") format("woff2-variations");
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
+	color-scheme: dark;
+
+	/* Polices du site (layout.css : --font-sans, --font-display) */
+	--aura-font: "Hanken Grotesk Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+	--aura-font-display: "Sora Variable", "Hanken Grotesk Variable", system-ui, sans-serif;
+
+	/* Le cyan dit « actif », le rose dit « pour toi » (D-066) : mentions
+	   et messages prives. Rien d'autre ne prend le rose. */
+	--aura-pour-toi: #f472b6;
+	/* Le « # » devant le nom d'un salon */
+	--aura-hash: #5aaec2;
+
 	/* Palette aurora AuraSync */
 	--aura-bg: #070b14;
 	--aura-bg-soft: #0c1220;
@@ -12,7 +67,8 @@
 	--aura-violet: #8b5cf6;
 	--aura-text: #e8eef7;
 	--aura-text-soft: #a8b6cc;
-	--aura-text-dim: #6b7d99;
+	/* 5:1 sur le fond le plus clair de la barre (#102738, sous l'orbe cyan) */
+	--aura-text-dim: #8494b0;
 	--aura-stroke: rgba(148, 178, 220, 0.14);
 	--aura-glass: rgba(18, 28, 46, 0.72);
 
@@ -42,7 +98,7 @@ html {
 }
 
 body {
-	font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+	font-family: var(--aura-font);
 	color: var(--aura-text);
 	background: var(--aura-bg);
 }
@@ -195,6 +251,11 @@ button:active {
 #buffer-list {
 	flex-direction: column;
 }
+/* Largeur fixe : un nom qui passe en gras (non lu, actif) ne fait plus
+   bouger toute la mise en page ; un nom trop long finit en « … ». */
+#buffer-list {
+	width: 240px;
+}
 #aurasync-logo {
 	display: block;
 	flex-shrink: 0;
@@ -303,6 +364,7 @@ button:active {
 	gap: 6px;
 	padding: 9px 10px 5px;
 	color: var(--aura-text-dim);
+	font-family: var(--aura-font-display);
 	font-size: 11px;
 	font-weight: 600;
 	letter-spacing: 0.08em;
@@ -336,7 +398,6 @@ button:active {
 	font-size: 10px;
 	font-weight: 500;
 	letter-spacing: 0;
-	opacity: 0.7;
 }
 
 /* Entrees de salon : icone + diese + libelle */
@@ -344,14 +405,10 @@ button:active {
 #buffer-list li a {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-}
-.chan-icon {
-	width: 16px;
-	height: 16px;
-	flex-shrink: 0;
-	color: var(--aura-text-dim);
-	transition: color 0.16s ease;
+	gap: 9px;
+	line-height: 20px;
+	color: var(--aura-text-soft);
+	background-color: transparent;
 }
 .chan-name {
 	overflow: hidden;
@@ -359,14 +416,53 @@ button:active {
 	white-space: nowrap;
 }
 .chan-hash {
-	color: #3f8fa3;
+	color: var(--aura-hash);
 	margin-right: 1px;
 }
 
-#buffer-list li.active .chan-icon {
-	color: var(--aura-cyan);
+.chan-icon {
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+	color: var(--aura-text-dim);
+	transition: color 0.16s ease;
+}
+
+/* ── Etats d'une entree (D-066) ─────────────────────────────────────── */
+/* Meme selecteurs que style.css, qui les change selon le theme du
+   systeme : ceux-ci, charges apres, valent dans les deux cas. Ordre voulu :
+   survol, puis non-lu, puis actif, qui l'emporte. */
+
+#buffer-list li a:hover {
+	color: var(--aura-text);
+	background-color: rgba(148, 178, 220, 0.08);
+}
+#buffer-list li.unread-message a {
+	color: var(--aura-text);
+	font-weight: 650;
+}
+#buffer-list li.unread-highlight a {
+	color: var(--aura-pour-toi);
+	font-weight: 650;
+}
+#buffer-list li.error a {
+	color: var(--red);
+}
+/* Salon selectionne : barre cyan de 3 px a gauche, fond teinte, gras. */
+#buffer-list li.active a {
+	color: var(--aura-text);
+	background-color: rgba(34, 211, 238, 0.10);
+	font-weight: 650;
+	border-radius: 0 8px 8px 0;
+	box-shadow: inset 3px 0 0 var(--aura-cyan);
+}
+#buffer-list li.active a:hover {
+	background-color: rgba(34, 211, 238, 0.14);
 }
 #buffer-list li.active .chan-hash {
+	color: var(--aura-cyan);
+}
+#buffer-list li.active .chan-icon {
 	color: var(--aura-cyan);
 }
 #buffer-list li.type-channel:hover .chan-icon,
@@ -829,8 +925,9 @@ button:active {
 	}
 
 	/* Poignees d'origine : remplacees par les commandes de l'en-tete. */
+	/* Meme selecteur que style.css, charge apres : pas besoin de !important. */
 	.expander {
-		display: none !important;
+		display: none;
 	}
 
 	/* ── En-tete compact ───────────────────────────────────────────── */
@@ -1090,4 +1187,142 @@ button:active {
 	border-radius: 6px;
 	background: rgba(34, 211, 238, 0.08);
 	color: var(--aura-text);
+}
+
+/* ── Couleurs independantes du theme du systeme (D-066) ───────────────── */
+/* style.css change ces couleurs sous @media (prefers-color-scheme: dark) :
+   un systeme en clair donnait au t'Chat, toujours sombre, des couleurs
+   pensees pour un fond blanc (une mention en #22009b sur la barre). Chaque
+   regle de ces blocs est redefinie ici, au meme selecteur, hors de toute
+   media query : le rendu est le meme en clair et en sombre. Contrastes
+   mesures sur le fond le plus clair du fil (#1a273f, sous le filigrane) :
+   test/theme.test.js. */
+
+#buffer-header .status-gone {
+	color: #fbbf24;
+}
+#buffer-header .status-offline {
+	color: var(--red);
+}
+
+form input[type="text"],
+form input[type="username"],
+form input[type="password"],
+form input[type="url"],
+form input[type="email"],
+form input[type="search"] {
+	color: var(--aura-text);
+	background: rgba(7, 11, 20, 0.6);
+	border: 1px solid rgba(34, 211, 238, 0.32);
+	padding: 0.25rem 0.375rem;
+}
+form input[type="text"]:focus,
+form input[type="username"]:focus,
+form input[type="password"]:focus,
+form input[type="url"]:focus,
+form input[type="email"]:focus,
+form input[type="search"]:focus {
+	outline: 0;
+	border-color: var(--aura-cyan);
+}
+
+#buffer .error {
+	color: var(--red);
+}
+#buffer .me-tell {
+	color: #c4b5fd;
+}
+/* Le pseudo de l'auteur d'une ligne qui te mentionne : rose, « pour toi ».
+   Le lot 2 de D-066 deplacera la marque sur ton propre pseudo. */
+#buffer .highlight .nick {
+	color: #fbcfe8;
+	background-color: rgba(244, 114, 182, 0.22);
+	border-radius: 4px;
+}
+
+#buffer .date-separator {
+	color: var(--aura-text-dim);
+}
+#buffer .date-separator::before,
+#buffer .date-separator::after {
+	border-color: var(--aura-stroke);
+}
+#buffer .unread-separator {
+	color: #c4b5fd;
+}
+#buffer .history-separator::before,
+#buffer .history-separator::after {
+	border-color: var(--aura-stroke);
+}
+#buffer .unread-separator::before,
+#buffer .unread-separator::after {
+	border-color: rgba(196, 181, 253, 0.45);
+}
+
+.error-text {
+	color: var(--red);
+}
+
+kbd {
+	--outline-color: rgba(148, 178, 220, 0.35);
+
+	background-color: transparent;
+	border: 1px solid var(--outline-color);
+	box-shadow: inset 0 -1px 0 var(--outline-color);
+}
+
+ul.switcher-list li a.selected {
+	background-color: rgba(148, 178, 220, 0.1);
+}
+
+/* Seize couleurs de pseudo : le tour du cercle chromatique dans les tons
+   300-400 de la palette du site, sans rose (reserve a « pour toi »).
+   5,4:1 au moins sur le fil. */
+#buffer .nick-1 {
+	color: #fb923c;
+}
+#buffer .nick-2 {
+	color: #fcd34d;
+}
+#buffer .nick-3 {
+	color: #fdba74;
+}
+#buffer .nick-4 {
+	color: #a3e635;
+}
+#buffer .nick-5 {
+	color: #4ade80;
+}
+#buffer .nick-6 {
+	color: #34d399;
+}
+#buffer .nick-7 {
+	color: #5eead4;
+}
+#buffer .nick-8 {
+	color: #67e8f9;
+}
+#buffer .nick-9 {
+	color: #38bdf8;
+}
+#buffer .nick-10 {
+	color: #60a5fa;
+}
+#buffer .nick-11 {
+	color: #93c5fd;
+}
+#buffer .nick-12 {
+	color: #a5b4fc;
+}
+#buffer .nick-13 {
+	color: #a78bfa;
+}
+#buffer .nick-14 {
+	color: #c4b5fd;
+}
+#buffer .nick-15 {
+	color: #d8b4fe;
+}
+#buffer .nick-16 {
+	color: #86efac;
 }
