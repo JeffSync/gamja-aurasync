@@ -2725,7 +2725,7 @@ export default class App extends Component {
 					</button>
 					<section>
 						<section id="member-list-header">
-							${activeBuffer.members.size} Utilisateur${activeBuffer.members.size > 1 ? "s" : ""}
+							${activeBuffer.members.size} personne${activeBuffer.members.size > 1 ? "s" : ""}
 						</section>
 						<${MemberList}
 							members=${activeBuffer.members}
