@@ -2,19 +2,20 @@
  * La fiche d'un pseudo (D-066, point 8, variante A).
  *
  * Une seule fiche remplace le menu d'un pseudo et « Qui est-ce ? » : avatar
- * de 64 px, nom affiche, @pseudo, badge de role du site, rang dans le salon,
- * puis les actions, puis la moderation (D-060) pour % et @. Le contenu, cas
- * par cas, est decide par lib/fiche.js. En mobile, feuille du bas (CSS).
+ * de 64 px, nom affiche, @pseudo, insigne du role du site, rang dans le
+ * salon, puis les actions, puis la moderation (D-060) pour % et @, puis le
+ * WHOIS. Le contenu, cas par cas, est decide par lib/fiche.js. En mobile,
+ * feuille du bas (CSS).
  *
- * Le WHOIS technique n'est montre qu'a l'equipe, dans le repli « Details
- * techniques », ferme par defaut : il n'est demande au serveur qu'a
- * l'ouverture du repli.
+ * Le WHOIS se montre a tous (point 8 revise le 7 novembre), sans repli : il
+ * est demande au serveur a l'ouverture de la fiche (app.js).
  */
 
 import { html, Component } from "../lib/index.js";
 import { peutRendreMuet } from "../lib/mutisme.js";
 import { contenuFiche, rangSalon, TEXTES } from "../lib/fiche.js";
-import { DetailsTechniques } from "./whois-panel.js";
+import { SurLeTchat } from "./whois-panel.js";
+import Insigne from "./insigne.js";
 
 const FICHE_W = 320;
 
@@ -83,7 +84,6 @@ export default class NickMenu extends Component {
 		super(props);
 		this.handleOutside = this.handleOutside.bind(this);
 		this.handleKey = this.handleKey.bind(this);
-		this.handleDetails = this.handleDetails.bind(this);
 	}
 
 	componentDidMount() {
@@ -108,12 +108,6 @@ export default class NickMenu extends Component {
 	handleKey(event) {
 		if (event.key === "Escape") {
 			this.props.onClose();
-		}
-	}
-
-	handleDetails(event) {
-		if (event.target.open && this.props.onDetails) {
-			this.props.onDetails(this.props.nick);
 		}
 	}
 
@@ -146,7 +140,12 @@ export default class NickMenu extends Component {
 		if (contenu.role || rang) {
 			badges = html`
 				<div class="fiche-badges">
-					${contenu.role ? html`<span class="fiche-role ${contenu.role.classe}">${contenu.role.label}</span>` : null}
+					${contenu.role ? html`
+						<span class="fiche-role" style=${"color:" + contenu.role.teinte}>
+							<${Insigne} insigne=${contenu.role} taille=${36}/>
+							<span class="fiche-role-libelle">${contenu.role.libelle}</span>
+						</span>
+					` : null}
 					${rang ? html`<span class="fiche-rang">${rang}</span>` : null}
 				</div>
 			`;
@@ -192,8 +191,8 @@ export default class NickMenu extends Component {
 					? html`<${Item} icon=${I.voiceOff} label="Retirer la voix" onClick=${() => this.run("devoice")}/>`
 					: html`<${Item} icon=${I.voiceOn} label="Donner la voix" onClick=${() => this.run("voice")}/>`}
 				${targetRank >= 3
-					? html`<${Item} icon=${I.opOff} label="Retirer l'opérateur" onClick=${() => this.run("deop")}/>`
-					: html`<${Item} icon=${I.opOn} label="Donner l'opérateur" onClick=${() => this.run("op")}/>`}
+					? html`<${Item} icon=${I.opOff} label="Retirer le statut opérateur" onClick=${() => this.run("deop")}/>`
+					: html`<${Item} icon=${I.opOn} label="Donner le statut opérateur" onClick=${() => this.run("op")}/>`}
 				${mutisme}
 				<${Item} icon=${I.kick} label="Expulser" danger onClick=${() => this.run("kick")}/>
 				<${Item} icon=${I.ban} label="Bannir" danger onClick=${() => this.run("ban")}/>
@@ -206,14 +205,15 @@ export default class NickMenu extends Component {
 			`;
 		}
 
-		// Le WHOIS technique : l'equipe seule, jamais pour un service
-		let details = null;
-		if (etat && etat.equipe && contenu.moderation !== false && etat.fiche && etat.fiche.kind !== "service") {
-			details = html`
-				<details class="fiche-details" onToggle=${this.handleDetails}>
-					<summary>${TEXTES.details}</summary>
-					<${DetailsTechniques} ...${whois || {}}/>
-				</details>
+		// Le WHOIS, pour tous et pour chaque cas : ce que le serveur envoie
+		let infos = null;
+		if (whois && (whois.loading || whois.error || whois.data)) {
+			infos = html`
+				<section class="fiche-whois" aria-label=${TEXTES.whois}>
+					<div class="nick-menu-sep"></div>
+					<div class="nick-menu-title">${TEXTES.whois.toUpperCase()}</div>
+					<${SurLeTchat} ...${whois}/>
+				</section>
 			`;
 		}
 
@@ -239,7 +239,7 @@ export default class NickMenu extends Component {
 				${contenu.sousNote ? html`<p class="fiche-sous-note">${contenu.sousNote}</p>` : null}
 				${actions.length ? html`<div class="fiche-actions">${actions}</div>` : null}
 				${moderation}
-				${details}
+				${infos}
 			</div>
 		`;
 	}

@@ -315,7 +315,6 @@ export default class App extends Component {
 		this.handlePageShow = this.handlePageShow.bind(this);
 		this.handleMotifSubmit = this.handleMotifSubmit.bind(this);
 		this.openWhois = this.openWhois.bind(this);
-		this.openDetailsTechniques = this.openDetailsTechniques.bind(this);
 		this.openChannelList = this.openChannelList.bind(this);
 		this.closeChannelList = this.closeChannelList.bind(this);
 		this.handleChannelListJoin = this.handleChannelListJoin.bind(this);
@@ -1810,6 +1809,7 @@ export default class App extends Component {
 			whois: null,
 		});
 		this.fetchMuet(nick);
+		this.chargerWhois(nick);
 		this.chargerFiche(nick).catch(() => {
 			this.setState((state) => {
 				if (!state.nickMenu || state.nickMenu.nick !== nick) {
@@ -1862,21 +1862,17 @@ export default class App extends Component {
 		this.setState({ nickMenu: null });
 	}
 
-	/* /whois : la fiche, centree. Le WHOIS technique reste a l'equipe. */
+	/* /whois : la fiche, centree, avec le WHOIS. */
 	openWhois(nick) {
 		this.ouvrirFiche(nick, { x: 0, y: 0, centered: true });
 	}
 
 	/*
-	 * « Détails techniques » de la fiche, ouvert par l'equipe seule : le
-	 * WHOIS n'est demande au serveur qu'a ce moment, et jamais si l'API n'a
-	 * pas dit que la personne connectee est de l'equipe.
+	 * Le WHOIS de la fiche, demande a son ouverture, pour tout le monde
+	 * (point 8 revise le 7 novembre). Le serveur decide de ce qu'il rend :
+	 * aucun filtre ici.
 	 */
-	openDetailsTechniques(nick) {
-		let lue = this.state.fiches.get(nick.toLowerCase());
-		if (!lue || !lue.equipe) {
-			return;
-		}
+	chargerWhois(nick) {
 		let buf = this.state.buffers.get(this.state.activeBuffer);
 		let client = buf ? this.clients.get(buf.server) : null;
 		if (!client) {
@@ -3012,7 +3008,6 @@ export default class App extends Component {
 			let lue = this.state.fiches.get(this.state.nickMenu.nick.toLowerCase());
 			let etatFiche = {
 				fiche: lue ? lue.card : null,
-				equipe: lue ? lue.equipe : false,
 				erreur: this.state.nickMenu.erreur,
 			};
 			nickMenu = html`
@@ -3027,7 +3022,6 @@ export default class App extends Component {
 					etat=${etatFiche}
 					whois=${this.state.whois && this.state.whois.nick === this.state.nickMenu.nick ? this.state.whois : null}
 					onAction=${this.handleNickMenuAction}
-					onDetails=${this.openDetailsTechniques}
 					onClose=${this.closeNickMenu}
 				/>
 			`;

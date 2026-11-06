@@ -1,12 +1,19 @@
 /*
- * « Détails techniques » de la fiche d'un pseudo (D-066, point 8) : le
- * WHOIS mis en forme, pour l'equipe seule. Le panneau « Qui est-ce ? »
- * n'existe plus : la fiche (nick-menu.js) le remplace, et ne monte ce repli
- * que si l'API dit que la personne connectee est de l'equipe.
+ * Le WHOIS de la fiche d'un pseudo (D-066, point 8, revise le 7 novembre) :
+ * visible de tous, comme sur un reseau classique. Le panneau « Qui est-ce ? »
+ * n'existe plus : la fiche (nick-menu.js) le remplace, et monte cette
+ * section sous ses actions. Le WHOIS est demande a l'ouverture de la fiche.
  *
- * Seuls le masque, les salons, l'inactivite et l'heure de connexion sont
- * montres. Les donnees de moderation (score de reputation, groupes de
- * securite) sont volontairement ignorees.
+ * On montre ce que le serveur envoie, rien de plus, rien de deduit :
+ * - le masque (311), c'est-a-dire le vhost s'il y en a un, sinon le masque
+ *   d'adresse ;
+ * - l'adresse reelle (378), que UnrealIRCd n'envoie qu'aux opers et a
+ *   soi-meme ;
+ * - tous les salons du 319, avec leur prefixe de rang, sans aucun filtre :
+ *   le serveur retire lui-meme les salons +s pour qui n'y est pas ;
+ * - l'inactivite et l'heure de connexion (317).
+ * Les donnees de moderation (score de reputation, groupes de securite) sont
+ * volontairement ignorees.
  */
 
 import { html } from "../lib/index.js";
@@ -33,10 +40,18 @@ function Row(props) {
 	`;
 }
 
-/* Les lignes affichees, tirees de la reponse WHOIS (numeriques 311, 319, 317). */
-export function lignesTechniques(whois) {
+/* Les lignes affichees, tirees de la reponse WHOIS (311, 378, 319, 317). */
+export function lignesWhois(whois) {
 	let user = whois["311"];
-	let masque = user ? user.params[2] + "@" + user.params[3] : null;
+	let masque = user && user.params[3] ? user.params[2] + "@" + user.params[3] : null;
+
+	// « is connecting from *@hote ip » : on garde ce qui suit « from », tel quel
+	let adresse = null;
+	if (whois["378"]) {
+		let texte = (whois["378"].params[2] || "").trim();
+		let m = /\bfrom\s+(.+)$/.exec(texte);
+		adresse = (m ? m[1] : texte) || null;
+	}
 
 	let salons = null;
 	if (whois["319"]) {
@@ -55,10 +70,10 @@ export function lignesTechniques(whois) {
 			});
 		}
 	}
-	return { masque, salons, inactivite, connexion };
+	return { masque, adresse, salons, inactivite, connexion };
 }
 
-export function DetailsTechniques(props) {
+export function SurLeTchat(props) {
 	let { data, loading, error } = props;
 	if (loading) {
 		return html`<div class="whois-wait">Recherche…</div>`;
@@ -67,14 +82,15 @@ export function DetailsTechniques(props) {
 		return html`<div class="whois-wait">Ce pseudo n'est pas connecté</div>`;
 	}
 	if (!data) {
-		return html`<div class="whois-wait">Aucune information</div>`;
+		return null;
 	}
-	let l = lignesTechniques(data);
+	let l = lignesWhois(data);
 	let salons = l.salons
 		? html`<div class="whois-chans">${l.salons.map((c) => html`<span>${c}</span>`)}</div>`
 		: null;
 	return html`
 		<${Row} label="Masque" value=${l.masque}/>
+		<${Row} label="Adresse réelle" value=${l.adresse}/>
 		<${Row} label="Salons" value=${salons}/>
 		<${Row} label="Inactivité" value=${l.inactivite}/>
 		<${Row} label="Connexion" value=${l.connexion}/>
