@@ -92,10 +92,11 @@ function salon() {
 			}
 		},
 		updateDocumentTitle() {},
-		messageNotifications: new Set(),
+		notifier: { montrer() {}, permission: () => "granted", fermer() {}, fermerSiLu() {} },
+		propositionNotifFaite: false,
 		createBuffer() {},
 	};
-	for (let nom of ["accueilDe", "salonMutisme", "routeMessage", "prepareChatMessage", "handleChatMessage", "setBufferState"]) {
+	for (let nom of ["accueilDe", "salonMutisme", "routeMessage", "prepareChatMessage", "handleChatMessage", "setBufferState", "notifierConversation", "proposerNotifications"]) {
 		app[nom] = App.prototype[nom];
 	}
 	let t = 0;
@@ -175,39 +176,45 @@ test("sans historique, pas de séparateur", () => {
 	assert.ok(!rendu().includes(SEPARATEUR_HISTORIQUE));
 });
 
-test("l'historique ne notifie pas et ne compte pas comme mention", () => {
-	let notifications = 0;
-	class FausseNotification {
-		static permission = "granted";
-		constructor() {
-			notifications++;
-		}
-		addEventListener() {}
-	}
-	globalThis.window.Notification = FausseNotification;
-	globalThis.Notification = FausseNotification;
-	globalThis.document = { hasFocus: () => false };
+test("l'historique et l'accueil ne notifient pas, ne comptent pas et ne proposent rien (D-062, D-066)", () => {
+	let notifications = [];
+	globalThis.document = { hasFocus: () => false, hidden: true };
 	try {
 		let { app, sid, recoit } = salon();
+		app.notifier.montrer = (titre, options) => notifications.push({ titre, options });
+		// Permission encore a demander : la proposition est possible
+		app.notifier.permission = () => "default";
 		recoit({ command: "JOIN", prefix: { name: "Kahen" }, params: ["#aide"] });
 		const t = (s) => new Date(Date.UTC(2026, 9, 31, 9, 0, s)).toISOString();
+		const aide = () => State.getBuffer(app.state, { server: sid, name: "#aide" });
 		// Comme fetchBacklog : l'historique passe par handleChatMessage.
 		app.handleChatMessage(sid, "#aide", { command: "PRIVMSG", prefix: { name: "Bob" }, params: ["#aide", "Kahen, regarde"], tags: { time: t(1) }, batch: LOT });
 		app.handleChatMessage(sid, "#aide", { command: "NOTICE", prefix: { name: "Bob" }, params: ["#aide", "Kahen !"], tags: { time: t(2) }, batch: LOT });
+		app.handleChatMessage(sid, "#aide", { command: "PRIVMSG", prefix: { name: "Bob" }, params: ["#aide", "\x01ACTION salue Kahen\x01"], tags: { time: t(3) }, batch: LOT });
 		// Un message prive venu d'un historique (le serveur n'en garde pas
 		// aujourd'hui) ne notifie pas davantage.
-		app.handleChatMessage(sid, "Bob", { command: "PRIVMSG", prefix: { name: "Bob" }, params: ["Kahen", "coucou"], tags: { time: t(2) }, batch: LOT });
-		let buf = State.getBuffer(app.state, { server: sid, name: "#aide" });
-		assert.equal(notifications, 0);
-		assert.notEqual(buf.unread, "highlight");
-		assert.ok(buf.messages.filter((m) => m.historique).every((m) => m.isHighlight === false));
-		// Temoin : la meme mention en direct notifie.
-		app.handleChatMessage(sid, "#aide", { command: "PRIVMSG", prefix: { name: "Bob" }, params: ["#aide", "Kahen, regarde"], tags: { time: t(3) } });
-		assert.equal(notifications, 1);
-		assert.equal(State.getBuffer(app.state, { server: sid, name: "#aide" }).unread, "highlight");
+		app.handleChatMessage(sid, "Bob", { command: "PRIVMSG", prefix: { name: "Bob" }, params: ["Kahen", "coucou"], tags: { time: t(4) }, batch: LOT });
+		// L'accueil du salon, qui nomme la personne, pas davantage
+		app.handleChatMessage(sid, "#aide", { ...accueil, params: ["Kahen", "[#aide] Bienvenue Kahen !"], tags: { time: t(5) }, accueil: { salon: "#aide", texte: "Bienvenue Kahen !" } });
+		assert.deepEqual(notifications, []);
+		assert.notEqual(aide().unread, "highlight");
+		assert.equal(aide().pourToi || 0, 0, "rien ne compte comme mention");
+		assert.equal(aide().propositionNotif, undefined, "aucune proposition");
+		assert.equal(app.propositionNotifFaite, false);
+		let rejoues = aide().messages.filter((m) => m.historique);
+		assert.equal(rejoues.length, 3);
+		assert.ok(rejoues.every((m) => m.isHighlight === false && !m.marques), "ni mention ni <mark>");
+		let bob = State.getBuffer(app.state, { server: sid, name: "Bob" });
+		assert.ok(!bob || !(bob.pourToi > 0));
+		// Temoin : la meme mention en direct notifie, compte, marque et propose.
+		app.handleChatMessage(sid, "#aide", { command: "PRIVMSG", prefix: { name: "Bob" }, params: ["#aide", "Kahen, regarde"], tags: { time: t(6) } });
+		assert.equal(notifications.length, 1);
+		assert.equal(aide().unread, "highlight");
+		assert.equal(aide().pourToi, 1);
+		let direct = aide().messages[aide().messages.length - 1];
+		assert.deepEqual(direct.marques, [[0, 5]]);
+		assert.equal(aide().propositionNotif, direct.key);
 	} finally {
-		delete globalThis.window.Notification;
-		delete globalThis.Notification;
 		delete globalThis.document;
 	}
 });

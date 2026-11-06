@@ -498,8 +498,10 @@ button:active {
 	color: var(--aura-text);
 	font-weight: 650;
 }
+/* Une mention : le nom en gras comme un non-lu ; le rose est porte par le
+   badge « @n » (D-066, point 6). */
 #buffer-list li.unread-highlight a {
-	color: var(--aura-pour-toi);
+	color: var(--aura-text);
 	font-weight: 650;
 }
 #buffer-list li.error a {
@@ -529,6 +531,170 @@ button:active {
 #aurasync-logo:focus-visible {
 	outline: 2px solid var(--aura-cyan);
 	outline-offset: 2px;
+}
+
+/* ── Pour toi : marques de la barre et pastille de ☰ (D-066) ──────── */
+/* Un point pour le non-lu, un badge rose « @n » pour une mention, un
+   nombre rose pour un message prive : la forme et la couleur different, on
+   les distingue sans voir les couleurs. Le rose ne sert qu'a « pour toi ». */
+
+.marque {
+	flex-shrink: 0;
+	align-self: center;
+	margin-left: auto;
+}
+.marque-point {
+	width: 7px;
+	height: 7px;
+	margin-right: 6px;
+	border-radius: 50%;
+	background-color: #c8d3e6;
+}
+.marque-mention,
+.marque-prive,
+.chan-group-total.pour-toi,
+.pastille-pour-toi {
+	color: #1f0614;
+	background-color: var(--aura-pour-toi);
+}
+.marque-mention,
+.marque-prive {
+	min-width: 18px;
+	padding: 0 6px;
+	border-radius: 9px;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 18px;
+	text-align: center;
+}
+
+/* Categorie repliee : le total de ce qu'elle cache remplace le nombre de
+   salons. Depliee, chaque salon porte sa marque. */
+.chan-group-total {
+	display: none;
+	margin-left: auto;
+	margin-right: 4px;
+	min-width: 18px;
+	padding: 0 6px;
+	border-radius: 9px;
+	color: var(--aura-text);
+	background-color: rgba(148, 178, 220, 0.18);
+	font-size: 10.5px;
+	font-weight: 700;
+	line-height: 17px;
+	text-align: center;
+}
+.chan-group:not([open]) > .chan-group-title > .chan-group-total {
+	display: inline-block;
+}
+.chan-group:not([open]) > .chan-group-title > .chan-group-count.a-lire {
+	display: none;
+}
+
+/* Sur ☰, en mobile : seul signe, tiroir ferme, qu'on t'ecrit. */
+.pastille-pour-toi {
+	position: absolute;
+	top: 1px;
+	right: -1px;
+	min-width: 17px;
+	height: 17px;
+	padding: 0 4px;
+	border-radius: 9px;
+	font-size: 10.5px;
+	font-weight: 700;
+	line-height: 17px;
+	text-align: center;
+	box-shadow: 0 0 0 2px var(--aura-bg);
+}
+
+/* ── Notifications (D-066, point 7) ─────────────────────────────────── */
+/* L'entree « Notifications », en pied de barre : la permission ne se
+   demande que sur un geste. */
+
+.notif-entree {
+	flex-shrink: 0;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 8px;
+	padding: 10px 12px 12px;
+	border-top: 1px solid var(--aura-stroke);
+	color: var(--aura-text-soft);
+	font-size: 12.5px;
+	line-height: 1.35;
+}
+.notif-icone {
+	width: 18px;
+	height: 18px;
+	flex-shrink: 0;
+	color: var(--aura-text-soft);
+}
+.notif-titre {
+	color: var(--aura-text);
+	font-weight: 600;
+}
+.notif-etat {
+	margin-left: auto;
+}
+.notif-denied .notif-etat,
+.notif-indisponible .notif-etat {
+	flex-basis: 100%;
+	margin-left: 0;
+}
+.notif-granted .notif-etat {
+	color: var(--aura-cyan);
+}
+
+/* Boutons « Activer » (entree et proposition) et « Non merci » */
+.notif-activer,
+#buffer .proposition-notif button {
+	padding: 3px 10px;
+	border: 1px solid var(--aura-cyan);
+	border-radius: 8px;
+	font-family: inherit;
+	font-size: 12.5px;
+	font-weight: 600;
+	line-height: 1.4;
+	cursor: pointer;
+}
+.notif-activer,
+#buffer .proposition-notif .proposition-activer {
+	margin-left: auto;
+	color: #04121a;
+	background: var(--aura-cyan);
+}
+#buffer .proposition-notif .proposition-activer {
+	margin-left: 0;
+}
+#buffer .proposition-notif .proposition-refuser {
+	color: var(--aura-text-soft);
+	background: transparent;
+	border-color: var(--aura-stroke);
+}
+.notif-activer:hover,
+#buffer .proposition-notif button:hover {
+	filter: brightness(1.1);
+	transform: none;
+}
+.notif-activer:focus-visible,
+#buffer .proposition-notif button:focus-visible {
+	outline: 2px solid var(--aura-cyan);
+	outline-offset: 2px;
+}
+
+/* La proposition, une fois, sous la premiere mention ou le premier message
+   prive : une ligne discrete du fil, pas une banniere. */
+#buffer .proposition-notif {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 10px;
+	margin: 4px 0 6px;
+	padding: 7px 12px;
+	border: 1px solid rgba(34, 211, 238, 0.30);
+	border-radius: 10px;
+	background-color: rgba(34, 211, 238, 0.06);
+	color: var(--aura-text);
 }
 
 /* ── Message d'erreur flottant ───────────────────────────────────────── */
@@ -932,7 +1098,8 @@ button:active {
 
 	#buffer-list .chan-groups,
 	#buffer-list #chan-browse,
-	#buffer-list #aurasync-logo {
+	#buffer-list #aurasync-logo,
+	#buffer-list .notif-entree {
 		display: none;
 	}
 	#buffer-list {
@@ -956,6 +1123,9 @@ button:active {
 	}
 	#buffer-list.expand .chan-groups {
 		display: block;
+	}
+	#buffer-list.expand .notif-entree {
+		display: flex;
 	}
 	#buffer-list.expand #aurasync-logo {
 		display: block;
@@ -1058,6 +1228,7 @@ button:active {
 	.hdr-toggle-left {
 		grid-row: 1;
 		grid-column: 1;
+		position: relative;
 	}
 	.hdr-toggle-right {
 		grid-row: 1;
@@ -1294,12 +1465,23 @@ form input[type="search"]:focus {
 #buffer .me-tell {
 	color: #c4b5fd;
 }
-/* Le pseudo de l'auteur d'une ligne qui te mentionne : rose, « pour toi ».
-   Le lot 2 de D-066 deplacera la marque sur ton propre pseudo. */
+/* Une ligne qui te mentionne (D-066, point 6) : filet rose de 3 px et fond
+   rose leger. Le pseudo de l'auteur garde sa couleur (regles nick-N plus
+   bas) ; c'est TON pseudo, dans le texte, qui est marque (<mark class="moi">). */
+#buffer .logline.highlight {
+	background-color: rgba(244, 114, 182, 0.10);
+	box-shadow: inset 3px 0 0 var(--aura-pour-toi);
+}
 #buffer .highlight .nick {
-	color: #fbcfe8;
+	color: var(--aura-text);
+	background-color: transparent;
+}
+#buffer mark.moi {
+	color: var(--aura-text);
 	background-color: rgba(244, 114, 182, 0.22);
+	font-weight: 700;
 	border-radius: 4px;
+	padding: 0 2px;
 }
 
 #buffer .date-separator {
@@ -1340,51 +1522,67 @@ ul.switcher-list li a.selected {
 /* Seize couleurs de pseudo : le tour du cercle chromatique dans les tons
    300-400 de la palette du site, sans rose (reserve a « pour toi »).
    5,4:1 au moins sur le fil. */
-#buffer .nick-1 {
+#buffer .nick-1,
+#buffer .highlight .nick-1 {
 	color: #fb923c;
 }
-#buffer .nick-2 {
+#buffer .nick-2,
+#buffer .highlight .nick-2 {
 	color: #fcd34d;
 }
-#buffer .nick-3 {
+#buffer .nick-3,
+#buffer .highlight .nick-3 {
 	color: #fdba74;
 }
-#buffer .nick-4 {
+#buffer .nick-4,
+#buffer .highlight .nick-4 {
 	color: #a3e635;
 }
-#buffer .nick-5 {
+#buffer .nick-5,
+#buffer .highlight .nick-5 {
 	color: #4ade80;
 }
-#buffer .nick-6 {
+#buffer .nick-6,
+#buffer .highlight .nick-6 {
 	color: #34d399;
 }
-#buffer .nick-7 {
+#buffer .nick-7,
+#buffer .highlight .nick-7 {
 	color: #5eead4;
 }
-#buffer .nick-8 {
+#buffer .nick-8,
+#buffer .highlight .nick-8 {
 	color: #67e8f9;
 }
-#buffer .nick-9 {
+#buffer .nick-9,
+#buffer .highlight .nick-9 {
 	color: #38bdf8;
 }
-#buffer .nick-10 {
+#buffer .nick-10,
+#buffer .highlight .nick-10 {
 	color: #60a5fa;
 }
-#buffer .nick-11 {
+#buffer .nick-11,
+#buffer .highlight .nick-11 {
 	color: #93c5fd;
 }
-#buffer .nick-12 {
+#buffer .nick-12,
+#buffer .highlight .nick-12 {
 	color: #a5b4fc;
 }
-#buffer .nick-13 {
+#buffer .nick-13,
+#buffer .highlight .nick-13 {
 	color: #a78bfa;
 }
-#buffer .nick-14 {
+#buffer .nick-14,
+#buffer .highlight .nick-14 {
 	color: #c4b5fd;
 }
-#buffer .nick-15 {
+#buffer .nick-15,
+#buffer .highlight .nick-15 {
 	color: #d8b4fe;
 }
-#buffer .nick-16 {
+#buffer .nick-16,
+#buffer .highlight .nick-16 {
 	color: #86efac;
 }

@@ -3,6 +3,7 @@ import linkify from "../lib/linkify.js";
 import { strip as stripANSI } from "../lib/ansi.js";
 import { BufferType, ServerStatus, getServerName } from "../state.js";
 import * as irc from "../lib/irc.js";
+import { libellePourToi } from "../lib/pour-toi.js";
 
 const UserStatus = {
 	HERE: "here",
@@ -53,12 +54,11 @@ export default function BufferHeader(props) {
 					break;
 				case "connected":
 					// host can be undefined e.g. when using UNIX domain sockets
-					description = `Connecté(e) au t'Chat`;
+					description = "Connecté(e) au t'Chat";
 					break;
 				}
 			} else if (props.buffer.serverInfo) {
-				let serverInfo = props.buffer.serverInfo;
-				description = `Connecté(e) au t'Chat`;
+				description = "Connecté(e) au t'Chat";
 			} else {
 				description = "Connecté(e)";
 			}
@@ -70,7 +70,7 @@ export default function BufferHeader(props) {
 		if (props.buffer.topic) {
 			description = linkify(stripANSI(props.buffer.topic), props.onChannelClick);
 		}
-				if (props.buffer.joined) {
+		if (props.buffer.joined) {
 			if (props.canPart) {
 				actions.push(html`
 					<button
@@ -167,6 +167,15 @@ export default function BufferHeader(props) {
 		name = getServerName(props.server, props.bouncerNetwork);
 	}
 
+	// D-066 : sur ☰, le total des mentions et des messages prives non lus,
+	// seul signe, tiroir ferme, qu'on t'ecrit
+	let pastille = null;
+	if (props.pourToi > 0) {
+		pastille = html`
+			<span class="pastille-pour-toi" role="img" aria-label=${libellePourToi(props.pourToi)}>${props.pourToi > 99 ? "99+" : props.pourToi}</span>
+		`;
+	}
+
 	/* Commandes mobiles : ouvrent les tiroirs. Masquees sur ordinateur. */
 	let drawerToggles = html`
 		<button
@@ -180,6 +189,7 @@ export default function BufferHeader(props) {
 				stroke-width="2" stroke-linecap="round" aria-hidden="true">
 				<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
 			</svg>
+			${pastille}
 		</button>
 	`;
 

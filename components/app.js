@@ -28,15 +28,37 @@ import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
 import { configAutojoin, connectAutojoin, takeOneShot, buffersToRestore } from "../lib/autojoin.js";
 import { createSelection } from "../lib/selection.js";
-import { setCatalogue } from "./aurasync-channels.js";
+import { setCatalogue, salonSensible } from "./aurasync-channels.js";
 import { expulsionAuto, cleSalon, noterExpulsion, oublierExpulsion, refusApresExpulsion } from "../lib/sanction-auto.js";
 import { marquerHistorique } from "../lib/historique.js";
 import { commandesSanction, demandeMotif } from "../lib/connexion.js";
 import { commandesParole, estMuet, peutRendreMuet, salonDeNotice } from "../lib/mutisme.js";
 import { lireAccueil } from "../lib/accueil.js";
 import { RESTREINT } from "../lib/shun.js";
+import { natureMessage, compterPourToi, totalPourToi } from "../lib/pour-toi.js";
+import { contenuNotification, doitNotifier, optionsNotification, tagConversation, etatPermission, peutProposer, CLE_REFUS } from "../lib/notifications.js";
+import { creerNotifier, enregistrerServiceWorker } from "../lib/notifier.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
+
+/*
+ * Icone des notifications : celle de la PWA, lue sur la page (Parcel la
+ * publie avec empreinte). Pas de new URL(..., import.meta.url) : voir
+ * lib/notifier.js.
+ */
+function iconeNotification() {
+	let lien = typeof document.querySelector === "function" ? document.querySelector("link[rel=\"icon\"][sizes=\"192x192\"]") : null;
+	return lien ? lien.href : undefined;
+}
+
+/* Refus de la proposition des notifications (D-066), retenu dans le navigateur. */
+function lireRefusNotifications() {
+	try {
+		return window.localStorage.getItem(CLE_REFUS) === "1";
+	} catch {
+		return false;
+	}
+}
 
 const baseConfig = {
 	server: {},
@@ -135,21 +157,6 @@ function fillConnectParams(params) {
 	return params;
 }
 
-function showNotification(title, options) {
-	if (!window.Notification || Notification.permission !== "granted") {
-		return null;
-	}
-
-	// This can still fail due to:
-	// https://bugs.chromium.org/p/chromium/issues/detail?id=481856
-	try {
-		return new Notification(title, options);
-	} catch (err) {
-		console.error("Failed to show notification: ", err);
-		return null;
-	}
-}
-
 function getReceipt(stored, type) {
 	if (!stored || !stored.receipts) {
 		return null;
@@ -242,7 +249,8 @@ export default class App extends Component {
 	 * Initial focused buffer from window hash.
 	 */
 	initialRoute = null;
-	messageNotifications = new Set();
+	/* D-066 : la proposition des notifications n'est faite qu'une fois. */
+	propositionNotifFaite = false;
 	baseTitle = null;
 	lastFocusPingDate = null;
 
@@ -262,6 +270,18 @@ export default class App extends Component {
 			},
 		});
 
+		// D-066, point 7 : notifications par le service worker du t'Chat. Un
+		// clic sur l'une d'elles ouvre sa conversation.
+		this.notifier = creerNotifier({
+			Notification: window.Notification,
+			serviceWorker: typeof navigator !== "undefined" ? navigator.serviceWorker : undefined,
+			onOuvrir: (nom, serveur) => this.ouvrirConversation(nom, serveur),
+		});
+		this.state.permissionNotif = etatPermission(window.Notification);
+
+		this.handleNotifActiver = this.handleNotifActiver.bind(this);
+		this.handleNotifRefuser = this.handleNotifRefuser.bind(this);
+		this.handleVisibilite = this.handleVisibilite.bind(this);
 		this.handleJoinSubmit = this.handleJoinSubmit.bind(this);
 		this.handleBufferListClick = this.handleBufferListClick.bind(this);
 		this.handleBufferListClose = this.handleBufferListClose.bind(this);
@@ -339,7 +359,7 @@ export default class App extends Component {
 		if (config.server.auth === "external") {
 			connectParams.saslExternal = true;
 		}
-                if (config.server.saslPlain && typeof config.server.saslPlain.username === "string") {
+		if (config.server.saslPlain && typeof config.server.saslPlain.username === "string") {
 			connectParams.saslPlain = {
 				username: config.server.saslPlain.username,
 				password: config.server.saslPlain.password,
@@ -667,7 +687,7 @@ export default class App extends Component {
 			if (!buf) {
 				return;
 			}
-			return State.updateBuffer(state, buf.id, { unread: Unread.NONE });
+			return State.updateBuffer(state, buf.id, { unread: Unread.NONE, pourToi: 0 });
 		}, () => {
 			if (!buf) {
 				return;
@@ -675,11 +695,7 @@ export default class App extends Component {
 
 			let client = this.clients.get(buf.server);
 
-			for (let notif of this.messageNotifications) {
-				if (client.cm(notif.data.bufferName) === client.cm(buf.name)) {
-					notif.close();
-				}
-			}
+			this.notifier.fermer(tagConversation(buf.name));
 
 			if (buf.messages.length > 0) {
 				let lastMsg = buf.messages[buf.messages.length - 1];
@@ -786,6 +802,12 @@ export default class App extends Component {
 		if (msg.isHighlight === undefined) {
 			let client = this.clients.get(serverID);
 			msg.isHighlight = irc.isHighlight(msg, client.nick, client.cm) || irc.isServerBroadcast(msg);
+			// D-066 : ou ton pseudo apparait dans le texte affiche, pour le <mark>
+			if (msg.isHighlight) {
+				let ctcp = irc.parseCTCP(msg);
+				let texte = ctcp ? (ctcp.command === "ACTION" ? ctcp.param : "") : msg.params[1];
+				msg.marques = irc.highlightRanges(stripANSI(texte || ""), client.nick, client.cm);
+			}
 		}
 
 		if (!msg.tags) {
@@ -812,79 +834,20 @@ export default class App extends Component {
 			isRead = true;
 		}
 
-		let msgUnread = Unread.NONE;
-		// L'accueil d'un salon (D-062) n'est ni un message prive ni une mention.
-		// L'historique non plus : il ne notifie jamais.
-		if ((msg.command === "PRIVMSG" || msg.command === "NOTICE") && !isRead && !msg.accueil && !msg.historique) {
-			let target = msg.params[0];
-			let text = msg.params[1];
-
-			let kind;
-			if (msg.isHighlight) {
-				msgUnread = Unread.HIGHLIGHT;
-				kind = "highlight";
-			} else if (client.isMyNick(target)) {
-				msgUnread = Unread.HIGHLIGHT;
-				kind = "private message";
-			} else {
-				msgUnread = Unread.MESSAGE;
-			}
-
-			if (msgUnread === Unread.HIGHLIGHT && !isDelivered && !irc.parseCTCP(msg)) {
-				let title = "New " + kind + " from " + msg.prefix.name;
-				if (client.isChannel(bufName)) {
-					title += " in " + bufName;
-				}
-				let notif = showNotification(title, {
-					body: stripANSI(text),
-					requireInteraction: true,
-					tag: "msg,server=" + serverID + ",from=" + msg.prefix.name + ",to=" + bufName,
-					data: { bufferName: bufName, message: msg },
-				});
-				if (notif) {
-					notif.addEventListener("click", () => {
-						// TODO: scroll to message
-						this.switchBuffer({ server: serverID, name: bufName });
-					});
-					notif.addEventListener("close", () => {
-						this.messageNotifications.delete(notif);
-					});
-					this.messageNotifications.add(notif);
-				}
-			}
+		// D-066 : mention, message prive ou simple non-lu. L'accueil d'un
+		// salon et l'historique (D-062) ne comptent jamais.
+		let nature = natureMessage(msg, { versMoi: client.isMyNick(msg.params[0]), dejaLu: isRead });
+		let msgUnread = nature.unread;
+		if (nature.pourToi && !isDelivered && !irc.parseCTCP(msg)) {
+			this.notifierConversation(serverID, bufName, msg, nature.pourToi);
 		}
 		if (msg.command === "INVITE" && client.isMyNick(msg.params[0])) {
 			msgUnread = Unread.HIGHLIGHT;
-
-			let channel = msg.params[1];
-			let notif = new Notification("Invitation dans " + channel, {
-				body: msg.prefix.name + " t'invite dans " + channel,
-				requireInteraction: true,
-				tag: "invite,server=" + serverID + ",from=" + msg.prefix.name + ",channel=" + channel,
-				actions: [{
-					action: "accept",
-					title: "Accepter",
-				}],
-			});
-			if (notif) {
-				notif.addEventListener("click", (event) => {
-					if (event.action === "accept") {
-						let stored = {
-							name: bufName,
-							server: client.params,
-							receipts: { [ReceiptType.READ]: receiptFromMessage(msg) },
-						};
-						if (this.bufferStore.put(stored)) {
-							this.sendReadReceipt(client, stored);
-						}
-						this.rejoindre(channel, serverID);
-					} else {
-						// TODO: scroll to message
-						this.switchBuffer({ server: serverID, name: bufName });
-					}
-				});
-			}
+			this.notifierConversation(serverID, bufName, msg, "invitation");
 		}
+		// Une seule proposition d'activer les notifications, sous la premiere
+		// mention ou le premier message prive recu
+		let proposer = nature.pourToi !== null && bufName !== SERVER_BUFFER && this.proposerNotifications();
 
 		// Open a new buffer if the message doesn't come from me or is a
 		// self-message
@@ -897,11 +860,15 @@ export default class App extends Component {
 		this.setBufferState(bufID, (buf) => {
 			// TODO: set unread if scrolled up
 			let unread = buf.unread;
+			let pourToi = buf.pourToi || 0;
 			let prevReadReceipt = buf.prevReadReceipt;
 			let receipts = { [ReceiptType.DELIVERED]: receiptFromMessage(msg) };
 
 			if (this.state.activeBuffer !== buf.id || !document.hasFocus()) {
 				unread = Unread.union(unread, msgUnread);
+				if (nature.pourToi) {
+					pourToi++;
+				}
 			} else {
 				receipts[ReceiptType.READ] = receiptFromMessage(msg);
 			}
@@ -921,12 +888,108 @@ export default class App extends Component {
 			if (this.bufferStore.put(stored)) {
 				this.sendReadReceipt(client, stored);
 			}
-			return { unread, prevReadReceipt };
+			let update = { unread, pourToi, prevReadReceipt };
+			if (proposer) {
+				update.propositionNotif = msg.key;
+			}
+			return update;
 		}, () => {
 			if (msgUnread === Unread.HIGHLIGHT) {
 				this.updateDocumentTitle();
 			}
 		});
+	}
+
+	/*
+	 * D-066, point 7 : notifie une mention, un message prive ou une
+	 * invitation, si la personne ne lit pas deja la conversation. Jamais le
+	 * texte du message (lib/notifications.js).
+	 */
+	notifierConversation(serverID, bufName, msg, nature) {
+		let client = this.clients.get(serverID);
+		let invitation = nature === "invitation";
+		// Le tampon du serveur est cache : rien a y ouvrir
+		if (bufName === SERVER_BUFFER && !invitation) {
+			return;
+		}
+		let buf = State.getBuffer(this.state, { server: serverID, name: bufName });
+		let affichee = Boolean(buf) && this.state.activeBuffer === buf.id;
+		if (!doitNotifier({ cache: document.hidden === true, focus: document.hasFocus(), affichee })) {
+			return;
+		}
+		let nom = invitation ? msg.params[1] : bufName;
+		let salon = client.isChannel(nom);
+		let contenu = contenuNotification({
+			nature,
+			salon,
+			sensible: salon && salonSensible(nom),
+			auteur: msg.prefix.name,
+			nom,
+		});
+		let options = optionsNotification(contenu, { conversation: nom, serveur: serverID, icone: iconeNotification() });
+		this.notifier.montrer(contenu.title, options, msg);
+	}
+
+	/* Vrai une seule fois, tant que la permission vaut « default » et sans refus. */
+	proposerNotifications() {
+		let oui = peutProposer({
+			permission: this.notifier.permission(),
+			refus: lireRefusNotifications(),
+			dejaProposee: this.propositionNotifFaite,
+		});
+		if (oui) {
+			this.propositionNotifFaite = true;
+		}
+		return oui;
+	}
+
+	/* Sur un geste : l'entree « Notifications » ou la proposition. */
+	handleNotifActiver() {
+		this.notifier.demanderPermission().then((permission) => {
+			this.setState({ permissionNotif: permission });
+			this.retirerPropositionNotif();
+		});
+	}
+
+	handleNotifRefuser() {
+		try {
+			window.localStorage.setItem(CLE_REFUS, "1");
+		} catch {
+			// stockage indisponible : le refus vaut pour la session
+		}
+		this.retirerPropositionNotif();
+	}
+
+	retirerPropositionNotif() {
+		for (let buf of this.state.buffers.values()) {
+			if (buf.propositionNotif !== undefined && buf.propositionNotif !== null) {
+				this.setBufferState(buf.id, { propositionNotif: null });
+			}
+		}
+	}
+
+	/* Clic sur une notification : la conversation, sur son serveur. */
+	ouvrirConversation(nom, serveur) {
+		let buf = State.getBuffer(this.state, { server: serveur, name: nom });
+		if (!buf) {
+			for (let id of this.state.servers.keys()) {
+				buf = State.getBuffer(this.state, { server: id, name: nom });
+				if (buf) {
+					break;
+				}
+			}
+		}
+		if (buf) {
+			this.switchBuffer(buf.id);
+		}
+	}
+
+	/* La permission peut changer dans les reglages du navigateur. */
+	handleVisibilite() {
+		let permission = this.notifier.permission();
+		if (permission !== this.state.permissionNotif) {
+			this.setState({ permissionNotif: permission });
+		}
 	}
 
 	connect(params) {
@@ -1434,14 +1497,7 @@ export default class App extends Component {
 			if (isReceiptBefore(readReceipt, getReceipt(stored, ReceiptType.READ))) {
 				break;
 			}
-			for (let notif of this.messageNotifications) {
-				if (client.cm(notif.data.bufferName) !== client.cm(target)) {
-					continue;
-				}
-				if (isMessageBeforeReceipt(notif.data.message, readReceipt)) {
-					notif.close();
-				}
-			}
+			this.notifier.fermerSiLu(tagConversation(target), (m) => isMessageBeforeReceipt(m, readReceipt));
 			let unread;
 			let closed = true;
 			this.setBufferState({ server: serverID, name: target }, (buf) => {
@@ -1466,7 +1522,12 @@ export default class App extends Component {
 					unread = Unread.MESSAGE;
 				}
 
-				return { unread };
+				let pourToi = compterPourToi(buf.messages, {
+					prive: buf.type === BufferType.NICK,
+					deMoi: (nom) => client.isMyNick(nom),
+					dejaLu: (m) => isMessageBeforeReceipt(m, readReceipt),
+				});
+				return { unread, pourToi };
 			}, () => {
 				this.bufferStore.put({
 					name: target,
@@ -1755,12 +1816,16 @@ export default class App extends Component {
 		}
 		client.whois(nick).then((data) => {
 			this.setState((state) => {
-				if (!state.whois || state.whois.nick !== nick) return {};
+				if (!state.whois || state.whois.nick !== nick) {
+					return {};
+				}
 				return { whois: Object.assign({}, state.whois, { loading: false, data }) };
 			});
 		}).catch(() => {
 			this.setState((state) => {
-				if (!state.whois || state.whois.nick !== nick) return {};
+				if (!state.whois || state.whois.nick !== nick) {
+					return {};
+				}
 				return { whois: Object.assign({}, state.whois, { loading: false, error: true }) };
 			});
 		});
@@ -1801,7 +1866,9 @@ export default class App extends Component {
 		setTimeout(() => {
 			client.removeEventListener("message", handler);
 			this.setState((state) => {
-				if (!state.chanList || !state.chanList.loading) return {};
+				if (!state.chanList || !state.chanList.loading) {
+					return {};
+				}
 				return { chanList: { loading: false, channels: collected } };
 			});
 		}, 8000);
@@ -2518,6 +2585,7 @@ export default class App extends Component {
 	}
 
 	handleWindowFocus() {
+		this.handleVisibilite();
 		if (this.state.activeBuffer) {
 			// TODO: only do this if scrolled at the bottom
 			this.markBufferAsRead(this.state.activeBuffer);
@@ -2588,6 +2656,12 @@ export default class App extends Component {
 		window.addEventListener("popstate", this.handlePopState);
 		window.addEventListener("pagehide", this.handlePageHide);
 		window.addEventListener("pageshow", this.handlePageShow);
+		document.addEventListener("visibilitychange", this.handleVisibilite);
+		if (window.Notification) {
+			enregistrerServiceWorker().then((registration) => {
+				this.notifier.registration = registration;
+			});
+		}
 	}
 
 	// Page quittee ou rechargee : QUIT au serveur, pour liberer le pseudo
@@ -2614,6 +2688,7 @@ export default class App extends Component {
 		window.removeEventListener("popstate", this.handlePopState);
 		window.removeEventListener("pagehide", this.handlePageHide);
 		window.removeEventListener("pageshow", this.handlePageShow);
+		document.removeEventListener("visibilitychange", this.handleVisibilite);
 	}
 
 	render() {
@@ -2694,6 +2769,7 @@ export default class App extends Component {
 						onChannelClick=${this.handleChannelClick}
 						onToggleBufferList=${this.toggleBufferList}
 						onToggleMemberList=${this.toggleMemberList}
+						pourToi=${totalPourToi(this.state.buffers.values())}
 						memberCount=${activeBuffer && activeBuffer.members ? activeBuffer.members.size : undefined}
 							canPart=${Array.from(this.state.buffers.values()).filter((b) => b.type === BufferType.CHANNEL).length > 1}
 						onClose=${() => this.close(activeBuffer)}
@@ -2964,6 +3040,8 @@ export default class App extends Component {
 					onBufferClick=${this.handleBufferListClick}
 					onBufferClose=${this.handleBufferListClose}
 					onOpenChannelList=${this.openChannelList}
+					permissionNotif=${this.state.permissionNotif}
+					onNotifActiver=${this.handleNotifActiver}
 				/>
 				<button
 					class="expander"
@@ -2990,6 +3068,8 @@ export default class App extends Component {
 						onAuthClick=${() => this.handleAuthClick(activeBuffer.server)}
 						onRegisterClick=${() => this.handleRegisterClick(activeBuffer.server)}
 						onVerifyClick=${this.handleVerifyClick}
+						onNotifActiver=${this.handleNotifActiver}
+						onNotifRefuser=${this.handleNotifRefuser}
 					/>
 				</section>
 			</>

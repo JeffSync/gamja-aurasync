@@ -3,6 +3,8 @@ import { strip as stripANSI } from "../lib/ansi.js";
 import { html } from "../lib/index.js";
 import { BufferType, Unread, ServerStatus, getBufferURL } from "../state.js";
 import { categories, channelLabel, channelMeta, channelIcon } from "./aurasync-channels.js";
+import { marqueBarre, totalCategorie } from "../lib/pour-toi.js";
+import { entreeMenu, TEXTES } from "../lib/notifications.js";
 
 const COLLAPSE_KEY = "aurasync_tchat_categories_fermees";
 
@@ -84,6 +86,15 @@ function BufferItem(props) {
 		break;
 	}
 
+	// D-066 : un point pour le non-lu, un badge rose pour ce qui est pour toi
+	let marque = marqueBarre(props.buffer);
+	let badge = null;
+	if (marque) {
+		badge = html`
+			<span class="marque marque-${marque.genre}" role="img" aria-label=${marque.label}>${marque.texte}</span>
+		`;
+	}
+
 	// Position dans toute la barre, de 0 a 1 : le degrade des icones (D-066)
 	return html`
 		<li
@@ -97,8 +108,35 @@ function BufferItem(props) {
 				title=${title}
 				onClick=${handleClick}
 				onMouseDown=${handleMouseDown}
-			>${icon}<span class="chan-name">${label}</span></a>
+			>${icon}<span class="chan-name">${label}</span>${badge}</a>
 		</li>
+	`;
+}
+
+/*
+ * D-066, point 7 : l'entree « Notifications », en pied de barre. La
+ * permission ne se demande que sur ce geste (ou la proposition du fil).
+ */
+function EntreeNotifications(props) {
+	if (!props.permission) {
+		return null;
+	}
+	let entree = entreeMenu(props.permission);
+	let etat;
+	if (entree.action) {
+		etat = html`<button type="button" class="notif-activer" onClick=${props.onActiver}>${entree.texte}</button>`;
+	} else {
+		etat = html`<span class="notif-etat">${entree.texte}</span>`;
+	}
+	return html`
+		<div class="notif-entree notif-${props.permission}">
+			<svg class="notif-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+				stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<path d="M6 16.5V11a6 6 0 0112 0v5.5l1.6 1.8H4.4z"/><path d="M10 20.8a2.2 2.2 0 004 0"/>
+			</svg>
+			<span class="notif-titre">${TEXTES.menu}</span>
+			${etat}
+		</div>
 	`;
 }
 
@@ -160,6 +198,19 @@ export default function BufferList(props) {
 	}
 
 	let sections = visibles.map((cat) => {
+		// Repliee, la categorie montre ce qu'elle cache (CSS : details fermes)
+		let cache = totalCategorie(groups.get(cat.id));
+		let total = null;
+		if (cache) {
+			total = html`
+				<span
+					class="chan-group-total ${cache.rose ? "pour-toi" : ""}"
+					role="img"
+					aria-label=${cache.label}
+				>${cache.texte}</span>
+			`;
+		}
+
 		function handleToggle(event) {
 			let next = readCollapsed();
 			if (event.target.open) {
@@ -179,7 +230,8 @@ export default function BufferList(props) {
 			>
 				<summary class="chan-group-title">
 					<span>${cat.label}</span>
-					<span class="chan-group-count">${groups.get(cat.id).length}</span>
+					<span class="chan-group-count ${cache ? "a-lire" : ""}">${groups.get(cat.id).length}</span>
+					${total}
 				</summary>
 				<ul role="tablist" aria-label=${cat.label}>
 					${groups.get(cat.id).map(item)}
@@ -205,5 +257,6 @@ export default function BufferList(props) {
 		<div class="chan-groups">
 			${sections}
 		</div>
+		<${EntreeNotifications} permission=${props.permissionNotif} onActiver=${props.onNotifActiver}/>
 	`;
 }

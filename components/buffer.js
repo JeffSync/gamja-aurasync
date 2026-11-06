@@ -11,6 +11,8 @@ import { estServeur, nomServeur } from "../lib/serveur.js";
 import { motifDepart } from "../lib/evenements.js";
 import { cibleBan, expulsesAvant, verbeBan } from "../lib/ban.js";
 import { avantHistorique, SEPARATEUR_HISTORIQUE } from "../lib/historique.js";
+import { segmentsMarques } from "../lib/pour-toi.js";
+import { TEXTES } from "../lib/notifications.js";
 
 function djb2(s) {
 	let hash = 5381;
@@ -41,6 +43,21 @@ function Nick(props) {
 			onClick=${handleClick}
 		>${props.nick}</a>
 	`;
+}
+
+/*
+ * Le texte d'un message, liens compris, et ton propre pseudo marque d'un
+ * <mark> quand il te mentionne (D-066, point 6). `marques` vient de
+ * prepareChatMessage (irc.highlightRanges) ; un pseudo n'est jamais dans un
+ * lien, isHighlight ecartant les adresses.
+ */
+function texteMarque(texte, marques, onChannelClick) {
+	if (!marques || marques.length === 0) {
+		return linkify(texte, onChannelClick);
+	}
+	return segmentsMarques(texte, marques).map((s) => {
+		return s.moi ? html`<mark class="moi">${s.texte}</mark>` : linkify(s.texte, onChannelClick);
+	});
 }
 
 function _Timestamp({ date, url, showSeconds }) {
@@ -148,7 +165,7 @@ export class LogLine extends Component {
 			if (ctcp) {
 				if (ctcp.command === "ACTION") {
 					lineClass = "me-tell";
-					content = html`* ${createNick(msg.prefix.name)} ${linkify(stripANSI(ctcp.param), onChannelClick)}`;
+					content = html`* ${createNick(msg.prefix.name)} ${texteMarque(stripANSI(ctcp.param), msg.marques, onChannelClick)}`;
 				} else {
 					content = html`
 						${createNick(msg.prefix.name)} a envoyé une commande CTCP : ${ctcp.command} ${ctcp.param}
@@ -163,7 +180,9 @@ export class LogLine extends Component {
 				if (this.props.redacted) {
 					content = html`<i>Ce message a été supprimé.</i>`;
 				} else {
-					content = html`${linkify(stripANSI(text), onChannelClick)}`;
+					// Un avis du serveur traduit n'a plus les positions d'origine
+					let marques = text === msg.params[1] ? msg.marques : null;
+					content = html`${texteMarque(stripANSI(text), marques, onChannelClick)}`;
 					lineClass += " talk";
 				}
 				content = html`
@@ -245,7 +264,7 @@ export class LogLine extends Component {
 				let arg = msg.params[2];
 
 				let verb;
-								switch (mode) {
+				switch (mode) {
 				case "b":
 					// D-059 : un ~quiet n'est pas un ban, c'est un mutisme.
 					if (pseudoMuet(arg)) {
@@ -445,59 +464,6 @@ export class LogLine extends Component {
 	}
 }
 
-// Workaround for https://bugs.chromium.org/p/chromium/issues/detail?id=481856
-let notificationsSupported = false;
-if (window.Notification) {
-	notificationsSupported = true;
-	if (Notification.permission === "default") {
-		try {
-			new Notification("");
-		} catch (err) {
-			if (err.name === "TypeError") {
-				notificationsSupported = false;
-			}
-		}
-	}
-}
-
-class NotificationNagger extends Component {
-	state = { nag: false };
-
-	constructor(props) {
-		super(props);
-
-		this.handleClick = this.handleClick.bind(this);
-
-		this.state.nag = this.shouldNag();
-	}
-
-	shouldNag() {
-		return notificationsSupported && Notification.permission === "default";
-	}
-
-	handleClick(event) {
-		event.preventDefault();
-
-		Notification.requestPermission((permission) => {
-			this.setState({ nag: this.shouldNag() });
-		});
-	}
-
-	render() {
-		if (!this.state.nag) {
-			return null;
-		}
-
-		return html`
-			<div class="logline nag" role="listitem">
-				<${Timestamp}/>
-				${" "}
-											<a href="#" onClick=${this.handleClick}>Activez les notifications</a> pour être prévenu(e) des nouveaux messages
-			</div>
-		`;
-	}
-}
-
 class ProtocolHandlerNagger extends Component {
 	state = { nag: true };
 
@@ -602,6 +568,22 @@ function UnreadSeparator(props) {
 	return html`<div class="separator unread-separator" role="separator">Nouveaux messages</div>`;
 }
 
+/*
+ * D-066, point 7 : la proposition d'activer les notifications, faite une
+ * fois, sous la premiere mention ou le premier message prive recu.
+ */
+function PropositionNotifications(props) {
+	return html`
+		<div class="logline proposition-notif" role="listitem">
+			<span>${TEXTES.proposition}</span>
+			${" "}
+			<button type="button" class="proposition-activer" onClick=${props.onActiver}>${TEXTES.activer}</button>
+			${" "}
+			<button type="button" class="proposition-refuser" onClick=${props.onRefuser}>${TEXTES.nonMerci}</button>
+		</div>
+	`;
+}
+
 function sameDate(d1, d2) {
 	return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 }
@@ -622,9 +604,6 @@ export default class Buffer extends Component {
 		let serverName = server.name;
 
 		let children = [];
-		if (buf.type === BufferType.SERVER) {
-			children.push(html`<${NotificationNagger}/>`);
-		}
 		if (buf.type === BufferType.SERVER && server.isBouncer && !server.bouncerNetID) {
 			children.push(html`<${ProtocolHandlerNagger} bouncerName=${serverName}/>`);
 		}
@@ -641,6 +620,7 @@ export default class Buffer extends Component {
 		let onChannelClick = this.props.onChannelClick;
 		let onNickClick = this.props.onNickClick;
 		let onVerifyClick = this.props.onVerifyClick;
+		let props = this.props;
 
 		function createLogLine(msg) {
 			return html`
@@ -691,6 +671,15 @@ export default class Buffer extends Component {
 			// jamais repliee ni retiree.
 			children.push(...sep);
 			children.push(createLogLine(msg));
+			if (buf.propositionNotif !== undefined && buf.propositionNotif === msg.key) {
+				children.push(html`
+					<${PropositionNotifications}
+						key="proposition-notif"
+						onActiver=${props.onNotifActiver}
+						onRefuser=${props.onNotifRefuser}
+					/>
+				`);
+			}
 		});
 
 		return html`

@@ -28,7 +28,7 @@
   "private": true,
   "targets": {
     "default": {
-      "source": "index.html",
+      "source": ["index.html", "sw.js"],
       "context": "browser",
       "publicUrl": "."
     }

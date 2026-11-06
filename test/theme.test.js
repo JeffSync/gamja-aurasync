@@ -1,12 +1,14 @@
 /*
- * Tests du theme AuraSync (D-066, lot 1) :
+ * Tests du theme AuraSync (D-066, lots 1 et 2) :
  * - aucune couleur ne depend du theme du systeme : chaque regle que
  *   style.css place sous @media (prefers-color-scheme: …) est redefinie
  *   par aurasync-theme.css, au meme selecteur, hors de toute media query ;
  * - contrastes WCAG AA : 4,5:1 pour le texte, 3:1 pour les reperes, sur
  *   les fonds les plus clairs mesures dans les captures ;
  * - icones des salons en couleur, jamais en rose, et leurs traces ;
- * - polices du site servies par le fork, plus aucune « Inter ».
+ * - polices du site servies par le fork, plus aucune « Inter » ;
+ * - lot 2 : mentions dans le fil, marques de la barre, pastille de ☰,
+ *   entree « Notifications » et proposition, contrastes compris.
  */
 
 import { test } from "node:test";
@@ -286,8 +288,78 @@ test("seize couleurs de pseudo : 4,5:1 sur le fil, aucune en rose", () => {
 		vues.add(hex(c));
 	}
 	assert.equal(vues.size, 16, "deux couleurs de pseudo identiques");
-	let marque = sur(ETAT("#buffer .highlight .nick", "background-color"), FOND_FIL);
-	auMoins(couleur(ETAT("#buffer .highlight .nick", "color")).rgb, marque, 4.5, "pseudo d'une mention");
+});
+
+/* ── Lot 2 : ce qui est « pour toi » ─────────────────────────────────── */
+
+const ROSE = () => couleur("var(--aura-pour-toi)").rgb;
+const FOND_MENTION = sur(ETAT("#buffer .logline.highlight", "background-color"), FOND_FIL);
+
+test("mention dans le fil : filet rose de 3 px, fond leger, l'auteur garde sa couleur, ton pseudo marque", () => {
+	assert.deepEqual(ROSE(), [0xf4, 0x72, 0xb6]);
+	let ligne = declsTheme("#buffer .logline.highlight");
+	assert.equal(ligne.get("box-shadow"), "inset 3px 0 0 var(--aura-pour-toi)");
+	auMoins(ROSE(), FOND_MENTION, 3, "filet de la mention");
+	auMoins(couleur("var(--aura-text)").rgb, FOND_MENTION, 4.5, "texte d'une ligne de mention");
+	// L'auteur : sa couleur de pseudo, plus de fond rose
+	assert.equal(ETAT("#buffer .highlight .nick", "background-color"), "transparent");
+	for (let n = 1; n <= 16; n++) {
+		assert.equal(ETAT(`#buffer .highlight .nick-${n}`, "color"), ETAT(`#buffer .nick-${n}`, "color"), `pseudo ${n}`);
+		auMoins(couleur(ETAT(`#buffer .nick-${n}`, "color")).rgb, FOND_MENTION, 4.5, `pseudo ${n} sur une mention`);
+	}
+	// Les regles nick-N viennent apres celle de .highlight .nick : elles gagnent
+	assert.ok(THEME.indexOf("#buffer .highlight .nick-1") > THEME.indexOf("#buffer .highlight .nick {"));
+	let mark = declsTheme("#buffer mark.moi");
+	assert.equal(mark.get("font-weight"), "700");
+	let fondMark = sur(mark.get("background-color"), hex(FOND_MENTION));
+	auMoins(couleur(mark.get("color")).rgb, fondMark, 4.5, "ton pseudo marque");
+});
+
+test("barre : point gris pour le non-lu, badge rose pour une mention ou un message prive", () => {
+	let fondEntree = FOND_SURVOL;
+	auMoins(couleur(ETAT(".marque-point", "background-color")).rgb, fondEntree, 3, "point du non-lu");
+	assert.ok(teinte(couleur(ETAT(".marque-point", "background-color")).rgb) < 290, "le point n'est pas rose");
+	let badge = declsTheme(".marque-mention");
+	assert.equal(resoudre(badge.get("background-color")), "#f472b6");
+	auMoins(couleur(badge.get("background-color")).rgb, FOND_ACTIF, 3, "badge sur le salon actif");
+	auMoins(couleur(badge.get("background-color")).rgb, BARRE, 3, "badge sur la barre");
+	auMoins(couleur(badge.get("color")).rgb, couleur(badge.get("background-color")).rgb, 4.5, "texte du badge");
+	assert.deepEqual(declsTheme(".marque-prive"), declsTheme(".marque-mention"));
+	// Le nom d'un salon mentionne n'est plus rose : le badge porte le rose
+	assert.notEqual(resoudre(ETAT("#buffer-list li.unread-highlight a", "color")), "#f472b6");
+	// Categorie repliee : total gris ou rose
+	let total = declsTheme(".chan-group-total");
+	assert.equal(total.get("display"), "none");
+	auMoins(couleur(total.get("color")).rgb, sur(total.get("background-color"), FOND_BARRE), 4.5, "total d'une categorie");
+	assert.equal(ETAT(".chan-group:not([open]) > .chan-group-title > .chan-group-total", "display"), "inline-block");
+	assert.equal(ETAT(".chan-group:not([open]) > .chan-group-title > .chan-group-count.a-lire", "display"), "none");
+	assert.equal(resoudre(ETAT(".chan-group-total.pour-toi", "background-color")), "#f472b6");
+	// Pastille de ☰
+	let pastille = declsTheme(".pastille-pour-toi");
+	assert.equal(pastille.get("position"), "absolute");
+	auMoins(couleur(ETAT(".pastille-pour-toi", "background-color")).rgb, couleur("var(--aura-bg)").rgb, 3, "pastille de ☰");
+	assert.match(THEME, /\.hdr-toggle-left \{[^}]*position: relative;/);
+});
+
+test("entree « Notifications » et proposition : lisibles, sans rose, cachees avec le tiroir", () => {
+	auMoins(couleur(ETAT(".notif-titre", "color")).rgb, BARRE, 4.5, "« Notifications »");
+	auMoins(couleur(ETAT(".notif-entree", "color")).rgb, BARRE, 4.5, "etat des notifications");
+	auMoins(couleur(ETAT(".notif-granted .notif-etat", "color")).rgb, BARRE, 4.5, "« Activées »");
+	let activer = declsTheme(".notif-activer");
+	auMoins(couleur(activer.get("color")).rgb, couleur(resoudre(activer.get("background"))).rgb, 4.5, "bouton « Activer »");
+	let prop = declsTheme("#buffer .proposition-notif");
+	let fondProp = sur(prop.get("background-color"), FOND_FIL);
+	auMoins(couleur(prop.get("color")).rgb, fondProp, 4.5, "texte de la proposition");
+	auMoins(couleur(ETAT("#buffer .proposition-notif .proposition-refuser", "color")).rgb, fondProp, 4.5, "« Non merci »");
+	for (let sel of [".notif-activer:focus-visible", "#buffer .proposition-notif button:focus-visible"]) {
+		assert.match(ETAT(sel, "outline") || "", /^2px solid var\(--aura-cyan\)/, sel);
+	}
+	// Le rose reste a « pour toi »
+	let bloc = THEME.slice(THEME.indexOf("/* ── Notifications (D-066"), THEME.indexOf("/* ── Message d'erreur flottant"));
+	assert.doesNotMatch(bloc, /pour-toi|f472b6|244, 114, 182/);
+	// En mobile, l'entree suit le tiroir des salons
+	assert.match(THEME, /#buffer-list #aurasync-logo,\s*#buffer-list \.notif-entree \{\s*display: none;/);
+	assert.match(THEME, /#buffer-list\.expand \.notif-entree \{\s*display: flex;/);
 });
 
 /* ── Icones des salons ────────────────────────────────────────────────── */
