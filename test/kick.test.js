@@ -4,7 +4,7 @@
 
 import { test, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
-import { isSelfKick, nextBuffer, kickBanner, withoutChannel } from "../lib/kick.js";
+import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
 
 /* Casse RFC 1459, celle du serveur. */
 const cm = (s) => s.toLowerCase().replace(/\[/g, "{").replace(/\]/g, "}").replace(/\\/g, "|").replace(/~/g, "^");
@@ -81,24 +81,4 @@ test("bannière : le serveur n'est pas nommé", () => {
 		"Tu as été expulsé(e) de #aide (trop de messages en peu de temps).",
 	);
 	assert.ok(!/IRC/i.test(kickBanner("#aide", "irc.aurasync.fr", "")));
-});
-
-test("URL : le salon sort du paramètre channels", () => {
-	let search = "?channels=" + encodeURIComponent("#AuraSync,#aide,#Équipe");
-	assert.equal(withoutChannel(search, "#aide", cm), "?channels=" + encodeURIComponent("#AuraSync,#Équipe"));
-	assert.equal(withoutChannel(search, "#AIDE", cm), "?channels=" + encodeURIComponent("#AuraSync,#Équipe"));
-	assert.equal(withoutChannel(search, "#Équipe", cm), "?channels=" + encodeURIComponent("#AuraSync,#aide"));
-});
-
-test("URL : autres paramètres gardés, paramètre vidé retiré", () => {
-	assert.equal(withoutChannel("?debug=1&channels=%23aide", "#aide", cm), "?debug=1");
-	assert.equal(withoutChannel("?channels=%23aide", "#aide", cm), "");
-	/* Separateur non encode, comme dans un lien tape a la main. */
-	assert.equal(withoutChannel("?channels=%23aide,%23jeux&debug=1", "#jeux", cm), "?channels=%23aide&debug=1");
-});
-
-test("URL : rien à changer", () => {
-	assert.equal(withoutChannel("", "#aide", cm), null);
-	assert.equal(withoutChannel("?debug=1", "#aide", cm), null);
-	assert.equal(withoutChannel("?channels=%23jeux", "#aide", cm), null);
 });

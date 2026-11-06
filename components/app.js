@@ -25,7 +25,8 @@ import NickMenu from "./nick-menu.js";
 import WhoisPanel from "./whois-panel.js";
 import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
-import { isSelfKick, nextBuffer, kickBanner, withoutChannel } from "../lib/kick.js";
+import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
+import { configAutojoin, connectAutojoin, takeOneShot, buffersToRestore } from "../lib/autojoin.js";
 import { expulsionAuto, cleSalon, noterExpulsion, oublierExpulsion, refusApresExpulsion } from "../lib/sanction-auto.js";
 import { marquerHistorique } from "../lib/historique.js";
 import { commandesSanction, demandeMotif } from "../lib/connexion.js";
@@ -316,11 +317,8 @@ export default class App extends Component {
 		if (typeof config.server.url === "string") {
 			connectParams.url = config.server.url;
 		}
-		if (Array.isArray(config.server.autojoin)) {
-			connectParams.autojoin = config.server.autojoin;
-		} else if (typeof config.server.autojoin === "string") {
-			connectParams.autojoin = [config.server.autojoin];
-		}
+		// Les salons du compte (D-065) : ils gagnent sur tout le reste
+		let autojoin = connectAutojoin(configAutojoin(config.server.autojoin), takeOneShot(() => window.localStorage));
 		if (typeof config.server.nick === "string") {
 			connectParams.nick = config.server.nick;
 		}
@@ -362,7 +360,6 @@ export default class App extends Component {
 				...connectParams,
 				...autoconnect,
 				autoconnect: true,
-				autojoin: [], // handled by store.Buffer
 			};
 			if (freshSaslPlain) {
 				connectParams.saslPlain = freshSaslPlain;
@@ -376,8 +373,6 @@ export default class App extends Component {
 				connectParams.nick = connectParams.saslPlain.username;
 			}
 		}
-
-		let autojoin = [];
 
 		let queryParams = parseQueryString();
 		// Don't allow to silently override the server URL if there's one in
@@ -394,9 +389,7 @@ export default class App extends Component {
 		if (typeof queryParams.nick === "string") {
 			connectParams.nick = queryParams.nick;
 		}
-		if (typeof queryParams.channels === "string") {
-			autojoin = queryParams.channels.split(",");
-		}
+		// ?channels= n'est plus lu (D-065) : les salons viennent du compte
 		if (typeof queryParams.open === "string") {
 			this.autoOpenURL = irc.parseURL(queryParams.open);
 		}
@@ -407,10 +400,9 @@ export default class App extends Component {
 		}
 
 		if (window.location.hash) {
+			// Un #salon dans l'adresse n'est pas rejoint non plus (D-065)
 			if (window.location.hash.startsWith("#/")) {
 				this.initialRoute = parseWindowHash(window.location.hash);
-			} else {
-				autojoin = window.location.hash.split(",");
 			}
 		}
 
@@ -457,11 +449,9 @@ export default class App extends Component {
 				connectParams.nick = saslOauthBearer.username;
 			}
 		}
-		if (autojoin.length > 0) {
-			// Les salons selectionnes sur /tchat (parametre URL channels) sont
-			// toujours rejoints, y compris en autoconnect.
-			connectParams.autojoin = autojoin;
-		}
+		// Toujours, connexion memorisee comprise : la memoire ne rejoint
+		// plus de salon (buffersToRestore)
+		connectParams.autojoin = autojoin;
 
 		this.setState({ loading: false, connectParams });
 
@@ -1271,22 +1261,12 @@ export default class App extends Component {
 		case irc.ERR_NOMOTD:
 			// These messages are used to indicate the end of the ISUPPORT list
 
-			// Restore opened channel and user buffers
+			// Conversations privees de la session ; les salons viennent du
+			// compte, par l'autojoin (D-065), jamais de la memoire
 			let join = [];
-			for (let buf of this.bufferStore.list(client.params)) {
-				if (buf.name === "*" || buf.closed) {
-					continue;
-				}
-
-				if (client.isChannel(buf.name)) {
-					if (client.caps.enabled.has("soju.im/bouncer-networks")) {
-						continue;
-					}
-					join.push(buf.name);
-				} else {
-					this.createBuffer(serverID, buf.name);
-					this.whoUserBuffer(buf.name, serverID);
-				}
+			for (let name of buffersToRestore(this.bufferStore.list(client.params), (n) => client.isChannel(n))) {
+				this.createBuffer(serverID, name);
+				this.whoUserBuffer(name, serverID);
 			}
 
 			// Auto-join channels given at connect-time
@@ -1533,8 +1513,8 @@ export default class App extends Component {
 	}
 
 	// Expulse(e) d'un salon : on le quitte comme un « Partir », sans PART (le
-	// serveur nous en a deja sortis), et on l'oublie (store, parametre
-	// channels de l'URL) pour qu'un rechargement ne le rejoigne pas.
+	// serveur nous en a deja sortis). La selection du compte n'est jamais
+	// touchee (D-065) : le salon revient a la prochaine ouverture.
 	handleSelfKick(serverID, msg) {
 		let client = this.clients.get(serverID);
 		let channel = msg.params[0];
@@ -1559,12 +1539,6 @@ export default class App extends Component {
 		}
 
 		this.bufferStore.put({ name: channel, server: client.params, closed: true });
-
-		let search = withoutChannel(window.location.search, channel, client.cm);
-		if (search !== null) {
-			let { pathname, hash } = window.location;
-			window.history.replaceState(null, "", pathname + search + hash);
-		}
 
 		let motif = expulsionAuto(msg.prefix.name, msg.params[2]);
 		if (motif) {
