@@ -143,6 +143,10 @@ test("lireCatalogue : catégories, salons par clé, rang, sélection", () => {
 	assert.equal(lu.salons.get("#addictions").sensible, true);
 	assert.equal(lu.salons.get("#jeux").sensible, false);
 	assert.equal(lu.salons.get("#aide").sensible, false, "absent : faux");
+	assert.equal(lu.sensibleServi, true);
+	// API anterieure a D-066 : aucun indicateur servi
+	let ancienne = lireCatalogue({ categories: [{ id: "a", label: "A", channels: [{ name: "#abus" }] }], selection: [] });
+	assert.equal(ancienne.sensibleServi, false);
 	assert.equal(lu.salons.get("#île-de-france").category, "regions");
 	for (let bad of [null, {}, { categories: [], selection: null }, { categories: [{ id: 1 }], selection: [] }, { categories: [{ id: "a", label: "A" }], selection: [] }]) {
 		assert.equal(lireCatalogue(bad), null);

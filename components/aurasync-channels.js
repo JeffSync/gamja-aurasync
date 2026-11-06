@@ -166,10 +166,11 @@ export function channelMeta(name) {
 /*
  * Salon d'ecoute (indicateur `sensible` de l'API, D-066) : une notification
  * n'en donne jamais le nom. Tant que le catalogue n'est pas lu, tout salon
- * est traite comme sensible : dans le doute, on se tait.
+ * est traite comme sensible, et de meme si l'API ne sert pas l'indicateur
+ * (fork deploye avant l'API) : dans le doute, on se tait.
  */
 export function salonSensible(name) {
-	if (!catalogue) {
+	if (!catalogue || !catalogue.sensibleServi) {
 		return true;
 	}
 	let salon = typeof name === "string" ? catalogue.salons.get(cleCatalogue(name)) : null;

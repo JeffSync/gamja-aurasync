@@ -161,10 +161,19 @@ test("règle de vie privée, de bout en bout : jamais le texte, ni pseudo en pri
 	assert.deepEqual(notifications.map((n) => n.tag), ["tchat:kahen", "tchat:#addictions", "tchat:#abus", "tchat:#jeux", "tchat:léa"]);
 });
 
-test("catalogue pas encore lu : tout salon est traité comme un salon d'écoute", () => {
+test("catalogue pas encore lu, ou API sans l'indicateur : tout salon est traité comme un salon d'écoute", () => {
 	let { recoit, notifications } = tchat({ catalogue: null });
 	recoit("#jeux", "Kahen", "#jeux", "Jeff ?");
 	assert.deepEqual([notifications[0].title, notifications[0].body], ["t'Chat", "Nouvelle mention dans un salon d'écoute"]);
+	// Fork deploye avant l'API : #abus arrive sans `sensible`
+	let ancienne = lireCatalogue({
+		categories: [{ id: "principaux", label: "Salons principaux", channels: [{ name: "#abus" }, { name: "#jeux" }] }],
+		selection: [],
+	});
+	let b = tchat({ catalogue: ancienne });
+	b.recoit("#abus", "Kahen", "#abus", "Jeff ?");
+	b.recoit("#jeux", "Kahen", "#jeux", "Jeff ?");
+	assert.deepEqual(b.notifications.map((n) => n.body), ["Nouvelle mention dans un salon d'écoute", "Nouvelle mention dans un salon d'écoute"]);
 });
 
 test("quand notifier : onglet caché, sans focus, ou autre conversation affichée ; jamais un simple non-lu", () => {
