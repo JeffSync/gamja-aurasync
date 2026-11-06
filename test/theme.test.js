@@ -513,14 +513,14 @@ test("barre : chaque categorie porte sa classe, chaque entree son rang", () => {
 	let tout = [...noeuds(arbre)];
 	let groupes = tout.filter((n) => n.type === "details").map((n) => n.props.class);
 	assert.deepEqual(groupes, [
+		"chan-group cat-prives",
 		"chan-group cat-gestion",
 		"chan-group cat-principaux",
 		"chan-group cat-regions",
-		"chan-group cat-prives",
 		"chan-group cat-autres",
 	]);
 	let entrees = tout.filter((n) => n.props && n.props.buffer && "rang" in n.props);
-	assert.deepEqual(entrees.map((n) => n.props.buffer.name), ["#équipe", "#AuraSync", "#aide", "#bretagne", "Kahen", "#cercle"]);
+	assert.deepEqual(entrees.map((n) => n.props.buffer.name), ["Kahen", "#équipe", "#AuraSync", "#aide", "#bretagne", "#cercle"]);
 	assert.deepEqual(entrees.map((n) => n.props.rang), [0, 0.2, 0.4, 0.6, 0.8, 1]);
 	channels.setCatalogue(null);
 });

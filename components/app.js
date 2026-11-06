@@ -22,7 +22,6 @@ import { strip as stripANSI } from "../lib/ansi.js";
 import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEventsDisplayMode, State, getServerName, receiptFromMessage, isReceiptBefore, isMessageBeforeReceipt, SettingsContext, reglagesEffectifs } from "../state.js";
 import commands from "../commands.js";
 import NickMenu from "./nick-menu.js";
-import WhoisPanel from "./whois-panel.js";
 import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
@@ -39,6 +38,7 @@ import { natureMessage, compterPourToi, totalPourToi } from "../lib/pour-toi.js"
 import { contenuNotification, doitNotifier, optionsNotification, tagConversation, etatPermission, peutProposer, CLE_REFUS } from "../lib/notifications.js";
 import { creerNotifier, enregistrerServiceWorker } from "../lib/notifier.js";
 import { refusSuspension } from "../lib/suspension.js";
+import { creerCacheFiches } from "../lib/fiche.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -239,6 +239,9 @@ export default class App extends Component {
 		fin: null,
 		// Compte suspendu sur le site : { message } (D-067)
 		suspendu: null,
+		// Fiches des pseudos lues a l'API, par pseudo en minuscules :
+		// { card, equipe } (D-066, point 8). La barre y lit les avatars.
+		fiches: new Map(),
 		restreint: false,
 		openPanels: {
 			bufferList: false,
@@ -248,6 +251,7 @@ export default class App extends Component {
 	debug = !isProduction();
 	config = { ...baseConfig };
 	clients = new Map();
+	cacheFiches = creerCacheFiches();
 	endOfHistory = new Map();
 	receipts = new Map();
 	buffer = createRef();
@@ -311,7 +315,7 @@ export default class App extends Component {
 		this.handlePageShow = this.handlePageShow.bind(this);
 		this.handleMotifSubmit = this.handleMotifSubmit.bind(this);
 		this.openWhois = this.openWhois.bind(this);
-		this.closeWhois = this.closeWhois.bind(this);
+		this.openDetailsTechniques = this.openDetailsTechniques.bind(this);
 		this.openChannelList = this.openChannelList.bind(this);
 		this.closeChannelList = this.closeChannelList.bind(this);
 		this.handleChannelListJoin = this.handleChannelListJoin.bind(this);
@@ -644,6 +648,10 @@ export default class App extends Component {
 		});
 		if (isNew) {
 			this.syncBufferUnread(serverID, name);
+			// Conversation privee : sa fiche donne l'avatar de la barre
+			if (client && name !== SERVER_BUFFER && !client.isChannel(name)) {
+				this.chargerFiche(name);
+			}
 		}
 		return id;
 	}
@@ -1792,10 +1800,43 @@ export default class App extends Component {
 			this.open(nick);
 			return;
 		}
+		this.ouvrirFiche(nick, { x: event.clientX, y: event.clientY, centered: false });
+	}
+
+	/* La fiche d'un pseudo (D-066, point 8) : au point du clic, ou centree. */
+	ouvrirFiche(nick, position) {
 		this.setState({
-			nickMenu: { nick, x: event.clientX, y: event.clientY, muet: null },
+			nickMenu: { nick, ...position, muet: null, erreur: false },
+			whois: null,
 		});
 		this.fetchMuet(nick);
+		this.chargerFiche(nick).catch(() => {
+			this.setState((state) => {
+				if (!state.nickMenu || state.nickMenu.nick !== nick) {
+					return null;
+				}
+				return { nickMenu: { ...state.nickMenu, erreur: true } };
+			});
+		});
+	}
+
+	/*
+	 * La fiche lue a l'API, gardee cinq minutes (lib/fiche.js), puis rangee
+	 * dans l'etat pour la fiche ouverte et les avatars de la barre.
+	 */
+	chargerFiche(nick) {
+		let promesse = this.cacheFiches.charger(nick).then((reponse) => {
+			this.setState((state) => {
+				let fiches = new Map(state.fiches);
+				fiches.set(nick.toLowerCase(), reponse);
+				return { fiches };
+			});
+			return reponse;
+		});
+		promesse.catch((err) => {
+			console.error("Fiche indisponible :", err);
+		});
+		return promesse;
 	}
 
 	/* « Rendre muet » ou « Rendre la parole » : d'apres la liste des bans. */
@@ -1821,44 +1862,35 @@ export default class App extends Component {
 		this.setState({ nickMenu: null });
 	}
 
-	openWhois(nick, event) {
-		let centered = true, x = 0, y = 0;
-		if (this.state.nickMenu) {
-			centered = false;
-			x = this.state.nickMenu.x;
-			y = this.state.nickMenu.y;
-		} else if (event) {
-			centered = false;
-			x = event.clientX;
-			y = event.clientY;
-		}
-		this.setState({ whois: { nick, x, y, centered, loading: true, data: null, error: false } });
+	/* /whois : la fiche, centree. Le WHOIS technique reste a l'equipe. */
+	openWhois(nick) {
+		this.ouvrirFiche(nick, { x: 0, y: 0, centered: true });
+	}
 
+	/*
+	 * « Détails techniques » de la fiche, ouvert par l'equipe seule : le
+	 * WHOIS n'est demande au serveur qu'a ce moment, et jamais si l'API n'a
+	 * pas dit que la personne connectee est de l'equipe.
+	 */
+	openDetailsTechniques(nick) {
+		let lue = this.state.fiches.get(nick.toLowerCase());
+		if (!lue || !lue.equipe) {
+			return;
+		}
 		let buf = this.state.buffers.get(this.state.activeBuffer);
 		let client = buf ? this.clients.get(buf.server) : null;
 		if (!client) {
-			this.setState({ whois: { nick, x, y, loading: false, data: null, error: true } });
+			this.setState({ whois: { nick, loading: false, data: null, error: true } });
 			return;
 		}
-		client.whois(nick).then((data) => {
-			this.setState((state) => {
-				if (!state.whois || state.whois.nick !== nick) {
-					return {};
-				}
-				return { whois: Object.assign({}, state.whois, { loading: false, data }) };
-			});
-		}).catch(() => {
-			this.setState((state) => {
-				if (!state.whois || state.whois.nick !== nick) {
-					return {};
-				}
-				return { whois: Object.assign({}, state.whois, { loading: false, error: true }) };
-			});
+		this.setState({ whois: { nick, loading: true, data: null, error: false } });
+		let range = (maj) => this.setState((state) => {
+			if (!state.whois || state.whois.nick !== nick) {
+				return null;
+			}
+			return { whois: { ...state.whois, loading: false, ...maj } };
 		});
-	}
-
-	closeWhois() {
-		this.setState({ whois: null });
+		client.whois(nick).then((data) => range({ data }), () => range({ error: true }));
 	}
 
 	openChannelList() {
@@ -1912,14 +1944,6 @@ export default class App extends Component {
 	handleNickMenuAction(action, nick) {
 		let buf = this.state.buffers.get(this.state.activeBuffer);
 
-		if (action === "profile") {
-			window.open("https://www.aurasync.fr/u/" + encodeURIComponent(nick), "_blank", "noopener");
-			return;
-		}
-		if (action === "whois") {
-			this.openWhois(nick);
-			return;
-		}
 		if (action === "query") {
 			this.open(nick);
 			return;
@@ -2985,6 +3009,12 @@ export default class App extends Component {
 				let c = this.clients.get(mBuf.server);
 				selfNick = c ? c.nick : null;
 			}
+			let lue = this.state.fiches.get(this.state.nickMenu.nick.toLowerCase());
+			let etatFiche = {
+				fiche: lue ? lue.card : null,
+				equipe: lue ? lue.equipe : false,
+				erreur: this.state.nickMenu.erreur,
+			};
 			nickMenu = html`
 				<${NickMenu}
 					nick=${this.state.nickMenu.nick}
@@ -2993,24 +3023,12 @@ export default class App extends Component {
 					selfMembership=${members && selfNick ? members.get(selfNick) : null}
 					targetMembership=${members ? members.get(this.state.nickMenu.nick) : null}
 					muet=${this.state.nickMenu.muet}
+					centered=${this.state.nickMenu.centered}
+					etat=${etatFiche}
+					whois=${this.state.whois && this.state.whois.nick === this.state.nickMenu.nick ? this.state.whois : null}
 					onAction=${this.handleNickMenuAction}
+					onDetails=${this.openDetailsTechniques}
 					onClose=${this.closeNickMenu}
-				/>
-			`;
-		}
-
-		let whoisPanel = null;
-		if (this.state.whois) {
-			whoisPanel = html`
-				<${WhoisPanel}
-					nick=${this.state.whois.nick}
-					x=${this.state.whois.x}
-					y=${this.state.whois.y}
-					whois=${this.state.whois.data}
-					loading=${this.state.whois.loading}
-					error=${this.state.whois.error}
-					centered=${this.state.whois.centered}
-					onClose=${this.closeWhois}
 				/>
 			`;
 		}
@@ -3077,6 +3095,7 @@ export default class App extends Component {
 					servers=${this.state.servers}
 					bouncerNetworks=${this.state.bouncerNetworks}
 					activeBuffer=${this.state.activeBuffer}
+					fiches=${this.state.fiches}
 					onBufferClick=${this.handleBufferListClick}
 					onBufferClose=${this.handleBufferListClose}
 					onOpenChannelList=${this.openChannelList}
@@ -3127,7 +3146,6 @@ export default class App extends Component {
 			${dialog}
 			${error}
 			${nickMenu}
-			${whoisPanel}
 			${chanListPanel}
 		`;
 

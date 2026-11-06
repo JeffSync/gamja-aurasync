@@ -424,11 +424,11 @@ test("app.js : chaque geste de rejoindre passe par rejoindre, et la sélection n
 /* --- Catalogue dans la barre laterale --- */
 
 test("barre latérale : catalogue de l'API, icônes du t'Chat, salons de l'équipe", () => {
-	assert.deepEqual(channels.categories().map((c) => c.id), ["gestion", "prives", "autres"], "avant lecture");
+	assert.deepEqual(channels.categories().map((c) => c.id), ["prives", "gestion", "autres"], "avant lecture");
 	assert.equal(channels.channelMeta("#jeux"), null);
 	assert.equal(channels.channelLabel("#île-de-france"), "île-de-france", "avant lecture : le nom, sans #");
 	channels.setCatalogue(lireCatalogue(reponseApi([])));
-	assert.deepEqual(channels.categories().map((c) => c.label), ["Gestion", "Salons principaux", "Thématiques", "Régions", "Messages privés", "Autres"]);
+	assert.deepEqual(channels.categories().map((c) => c.label), ["Messages privés", "Gestion", "Salons principaux", "Thématiques", "Régions", "Autres"]);
 	assert.deepEqual(channels.channelMeta("#jeux"), { cat: "thematiques", icon: "gamepad", label: "Jeux", rank: undefined });
 	assert.deepEqual(channels.channelMeta("#Abus"), { cat: "principaux", icon: "flag", label: "Abus", rank: 3 });
 	assert.equal(channels.channelMeta("#île-de-france").icon, "pin");

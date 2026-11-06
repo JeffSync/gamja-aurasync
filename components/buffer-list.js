@@ -5,6 +5,8 @@ import { BufferType, Unread, ServerStatus, getBufferURL } from "../state.js";
 import { categories, channelLabel, channelMeta, channelIcon } from "./aurasync-channels.js";
 import { marqueBarre, totalCategorie } from "../lib/pour-toi.js";
 import { entreeMenu, TEXTES } from "../lib/notifications.js";
+import { avatarDe, trierPrives } from "../lib/fiche.js";
+import { AvatarFiche } from "./nick-menu.js";
 
 const COLLAPSE_KEY = "aurasync_tchat_categories_fermees";
 
@@ -82,7 +84,8 @@ function BufferItem(props) {
 		if (user && irc.isMeaningfulRealname(user.realname, name)) {
 			title = stripANSI(user.realname);
 		}
-		icon = channelIcon("chat");
+		// L'avatar de la personne, en 20 px (D-066, point 5), lu dans sa fiche
+		icon = html`<${AvatarFiche} avatar=${avatarDe(props.fiche ? props.fiche.card : null, name)} taille=${20}/>`;
 		break;
 	}
 
@@ -171,6 +174,13 @@ export default function BufferList(props) {
 		groups.get(catID).push(buf);
 	}
 
+	// Messages prives : le dernier message recu en haut (D-066, variante A)
+	let prives = groups.get("prives");
+	if (prives && prives.length > 1) {
+		let server = props.servers.get(prives[0].server);
+		groups.set("prives", trierPrives(prives, server ? server.cm : null));
+	}
+
 	let visibles = ordre.filter((cat) => groups.get(cat.id).length > 0);
 	let total = visibles.reduce((n, cat) => n + groups.get(cat.id).length, 0);
 	let index = 0;
@@ -189,6 +199,7 @@ export default function BufferList(props) {
 				buffer=${buf}
 				server=${server}
 				bouncerNetwork=${bouncerNetwork}
+				fiche=${buf.type === BufferType.NICK && props.fiches ? props.fiches.get(buf.name.toLowerCase()) : null}
 				onClick=${() => props.onBufferClick(buf)}
 				onClose=${() => props.onBufferClose(buf)}
 				active=${props.activeBuffer === buf.id}

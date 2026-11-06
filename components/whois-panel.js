@@ -1,21 +1,17 @@
 /*
- * Panneau « Qui est-ce ? » — reponse WHOIS mise en forme.
+ * « Détails techniques » de la fiche d'un pseudo (D-066, point 8) : le
+ * WHOIS mis en forme, pour l'equipe seule. Le panneau « Qui est-ce ? »
+ * n'existe plus : la fiche (nick-menu.js) le remplace, et ne monte ce repli
+ * que si l'API dit que la personne connectee est de l'equipe.
  *
- * S'ouvre depuis le menu au clic sur un pseudo, ou via la commande /whois.
- * Affiche uniquement ce que le serveur renvoie : un membre ordinaire ne
- * recoit pas les informations reservees aux operateurs, donc les lignes
- * correspondantes n'apparaissent simplement pas chez lui.
- *
- * Les donnees de moderation (score de reputation, groupes de securite) sont
- * volontairement ignorees.
+ * Seuls le masque, les salons, l'inactivite et l'heure de connexion sont
+ * montres. Les donnees de moderation (score de reputation, groupes de
+ * securite) sont volontairement ignorees.
  */
 
-import { html, Component } from "../lib/index.js";
-import * as irc from "../lib/irc.js";
+import { html } from "../lib/index.js";
 
-const PANEL_W = 360;
-
-function duration(seconds) {
+export function duree(seconds) {
 	let s = parseInt(seconds, 10);
 	if (isNaN(s)) return null;
 	if (s < 60) return s + " s";
@@ -37,115 +33,50 @@ function Row(props) {
 	`;
 }
 
-export default class WhoisPanel extends Component {
-	constructor(props) {
-		super(props);
-		this.handleOutside = this.handleOutside.bind(this);
-		this.handleKey = this.handleKey.bind(this);
+/* Les lignes affichees, tirees de la reponse WHOIS (numeriques 311, 319, 317). */
+export function lignesTechniques(whois) {
+	let user = whois["311"];
+	let masque = user ? user.params[2] + "@" + user.params[3] : null;
+
+	let salons = null;
+	if (whois["319"]) {
+		let list = (whois["319"].params[2] || "").trim();
+		salons = list ? list.split(/\s+/) : null;
 	}
 
-	componentDidMount() {
-		document.addEventListener("mousedown", this.handleOutside);
-		document.addEventListener("keydown", this.handleKey);
-	}
-
-	componentWillUnmount() {
-		document.removeEventListener("mousedown", this.handleOutside);
-		document.removeEventListener("keydown", this.handleKey);
-	}
-
-	handleOutside(event) {
-		if (this.base && !this.base.contains(event.target)) {
-			this.props.onClose();
+	let inactivite = null, connexion = null;
+	if (whois["317"]) {
+		inactivite = duree(whois["317"].params[2]);
+		let ts = parseInt(whois["317"].params[3], 10);
+		if (!isNaN(ts)) {
+			connexion = new Date(ts * 1000).toLocaleString("fr-FR", {
+				day: "2-digit", month: "2-digit", year: "numeric",
+				hour: "2-digit", minute: "2-digit",
+			});
 		}
 	}
+	return { masque, salons, inactivite, connexion };
+}
 
-	handleKey(event) {
-		if (event.key === "Escape") {
-			this.props.onClose();
-		}
+export function DetailsTechniques(props) {
+	let { data, loading, error } = props;
+	if (loading) {
+		return html`<div class="whois-wait">Recherche…</div>`;
 	}
-
-	render() {
-		let { nick, x, y, whois, error, loading } = this.props;
-
-		let left, top;
-		if (this.props.centered) {
-			left = Math.round((window.innerWidth - PANEL_W) / 2);
-			top = Math.round(window.innerHeight * 0.18);
-		} else {
-			left = Math.min(x - PANEL_W + 40, window.innerWidth - PANEL_W - 12);
-			top = Math.min(y, window.innerHeight - 320);
-		}
-		left = Math.max(8, left);
-		top = Math.max(8, top);
-
-		let body;
-		if (loading) {
-			body = html`<div class="whois-wait">Recherche…</div>`;
-		} else if (error) {
-			body = html`<div class="whois-wait">Ce pseudo n'est pas connecté</div>`;
-		} else if (!whois) {
-			body = html`<div class="whois-wait">Aucune information</div>`;
-		} else {
-			let user = whois["311"];
-			let host = user ? user.params[2] + "@" + user.params[3] : null;
-			let realname = user ? user.params[5] : null;
-
-			let team = null;
-			if (whois["313"]) {
-				team = html`<span class="whois-oper">t'Chat Opérateur</span>`;
-			}
-
-			let account = whois["330"] ? whois["330"].params[2] : null;
-
-			let secure = whois["671"] ? "Connexion sécurisée" : null;
-
-			let channels = null;
-			if (whois["319"]) {
-				let list = (whois["319"].params[2] || "").trim();
-				if (list) {
-					channels = html`<div class="whois-chans">${list.split(/\s+/).map((c) => html`<span>${c}</span>`)}</div>`;
-				}
-			}
-
-			let idle = null, signon = null;
-			if (whois["317"]) {
-				idle = duration(whois["317"].params[2]);
-				let ts = parseInt(whois["317"].params[3], 10);
-				if (!isNaN(ts)) {
-					signon = new Date(ts * 1000).toLocaleString("fr-FR", {
-						day: "2-digit", month: "2-digit", year: "numeric",
-						hour: "2-digit", minute: "2-digit",
-					});
-				}
-			}
-
-			body = html`
-				<${Row} label="Adresse" value=${host}/>
-				<${Row} label="Nom" value=${realname}/>
-				<${Row} label="Équipe" value=${team}/>
-				<${Row} label="Compte" value=${account}/>
-				<${Row} label="Sécurité" value=${secure}/>
-				<${Row} label="Salons communs" value=${channels}/>
-				<${Row} label="Inactif depuis" value=${idle}/>
-				<${Row} label="Connexion depuis" value=${signon}/>
-			`;
-		}
-
-		return html`
-			<div class="whois-panel" style=${`left:${left}px; top:${top}px;`} role="dialog">
-				<div class="whois-head">
-					<span class="whois-nick">${nick}</span>
-					<button
-						class="whois-close"
-						type="button"
-						onClick=${this.props.onClose}
-						title="Fermer"
-					>×</button>
-				</div>
-				${body}
-			</div>
-		`;
+	if (error) {
+		return html`<div class="whois-wait">Ce pseudo n'est pas connecté</div>`;
 	}
+	if (!data) {
+		return html`<div class="whois-wait">Aucune information</div>`;
+	}
+	let l = lignesTechniques(data);
+	let salons = l.salons
+		? html`<div class="whois-chans">${l.salons.map((c) => html`<span>${c}</span>`)}</div>`
+		: null;
+	return html`
+		<${Row} label="Masque" value=${l.masque}/>
+		<${Row} label="Salons" value=${salons}/>
+		<${Row} label="Inactivité" value=${l.inactivite}/>
+		<${Row} label="Connexion" value=${l.connexion}/>
+	`;
 }

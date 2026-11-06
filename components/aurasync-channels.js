@@ -104,11 +104,13 @@ const GESTION = {
 	services: "Services",
 };
 
-const AVANT = [{ id: "gestion", label: "Gestion" }];
-const APRES = [
+// Messages prives en tete de la barre (D-066, point 5) : la categorie
+// n'apparait que s'il existe une conversation.
+const AVANT = [
 	{ id: "prives", label: "Messages privés" },
-	{ id: "autres", label: "Autres" },
+	{ id: "gestion", label: "Gestion" },
 ];
+const APRES = [{ id: "autres", label: "Autres" }];
 
 /* Le catalogue lu a l'API : { categories, salons } (lib/selection.js). */
 let catalogue = null;

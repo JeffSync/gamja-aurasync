@@ -326,15 +326,15 @@ test("barre : point, badge « @n » annoncé, nombre rose en privé ; total d'un
 	let tout = [...noeuds(arbre)];
 	let marques = tout.filter((n) => classe(n).startsWith("marque "));
 	assert.deepEqual(marques.map((n) => [classe(n).trim(), n.props["aria-label"], n.props.role, texte(n)]), [
+		["marque marque-prive", "1 message privé non lu", "img", "1"],
 		["marque marque-point", "Nouveaux messages", "img", ""],
 		["marque marque-mention", "2 mentions", "img", "@2"],
-		["marque marque-prive", "1 message privé non lu", "img", "1"],
 	]);
 	let totaux = tout.filter((n) => classe(n).startsWith("chan-group-total"));
 	assert.deepEqual(totaux.map((n) => [classe(n).trim(), n.props["aria-label"], texte(n)]), [
+		["chan-group-total pour-toi", "1 conversation à lire, dont 1 message pour toi", "1"],
 		["chan-group-total", "1 conversation à lire", "1"],
 		["chan-group-total pour-toi", "1 conversation à lire, dont 2 messages pour toi", "1"],
-		["chan-group-total pour-toi", "1 conversation à lire, dont 1 message pour toi", "1"],
 	]);
 	let entree = tout.find((n) => classe(n).startsWith("notif-entree"));
 	assert.equal(classe(entree), "notif-entree notif-default");
