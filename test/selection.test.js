@@ -44,15 +44,15 @@ function reponseApi(selection) {
 				id: "principaux", label: "Salons principaux", channels: [
 					{ name: "#AuraSync", label: "AuraSync", description: "", fixed: true, discreet: false, remember: true },
 					{ name: "#aide", label: "Aide", description: "", fixed: false, discreet: false, remember: true },
-					{ name: "#abus", label: "Abus", description: "", fixed: false, discreet: true, remember: true },
+					{ name: "#abus", label: "Abus", description: "", fixed: false, discreet: true, remember: true, sensible: true },
 				], 
 			},
 			{
 				id: "thematiques", label: "Thématiques", channels: [
 					{ name: "#cinéma", label: "Cinéma", description: "", fixed: false, discreet: false, remember: true },
-					{ name: "#jeux", label: "Jeux", description: "", fixed: false, discreet: false, remember: true },
+					{ name: "#jeux", label: "Jeux", description: "", fixed: false, discreet: false, remember: true, sensible: false },
 					{ name: "#musique", label: "Musique", description: "", fixed: false, discreet: false, remember: true },
-					{ name: "#addictions", label: "Addictions", description: "", fixed: false, discreet: true, remember: false },
+					{ name: "#addictions", label: "Addictions", description: "", fixed: false, discreet: true, remember: false, sensible: true },
 				], 
 			},
 			{
@@ -138,13 +138,20 @@ test("lireCatalogue : catégories, salons par clé, rang, sélection", () => {
 	assert.equal(lu.salons.get("#aurasync").fixed, true);
 	assert.equal(lu.salons.get("#addictions").remember, false);
 	assert.equal(lu.salons.get("#abus").rang, 2);
+	// D-066 : l'indicateur sensible, lu comme fixed et remember
+	assert.equal(lu.salons.get("#abus").sensible, true);
+	assert.equal(lu.salons.get("#addictions").sensible, true);
+	assert.equal(lu.salons.get("#jeux").sensible, false);
+	assert.equal(lu.salons.get("#aide").sensible, false, "absent : faux");
 	assert.equal(lu.salons.get("#île-de-france").category, "regions");
 	for (let bad of [null, {}, { categories: [], selection: null }, { categories: [{ id: 1 }], selection: [] }, { categories: [{ id: "a", label: "A" }], selection: [] }]) {
 		assert.equal(lireCatalogue(bad), null);
 	}
 	assert.deepEqual(lireCatalogue({ categories: [], selection: ["#aide", 3, null] }).selection, ["#aide"]);
 	let sansDrapeaux = lireCatalogue({ categories: [{ id: "a", label: "A", channels: [{ name: "#x" }] }], selection: [] });
-	assert.deepEqual(sansDrapeaux.salons.get("#x"), { name: "#x", label: "#x", category: "a", rang: 0, fixed: false, remember: true });
+	assert.deepEqual(sansDrapeaux.salons.get("#x"), { name: "#x", label: "#x", category: "a", rang: 0, fixed: false, remember: true, sensible: false });
+	let texte = lireCatalogue({ categories: [{ id: "a", label: "A", channels: [{ name: "#x", sensible: "oui" }] }], selection: [] });
+	assert.equal(texte.salons.get("#x").sensible, false, "seul le booléen true compte");
 });
 
 test("salonModifiable : catalogue seulement, ni #AuraSync ni #addictions, nom canonique", () => {

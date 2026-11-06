@@ -163,6 +163,19 @@ export function channelMeta(name) {
 	return null;
 }
 
+/*
+ * Salon d'ecoute (indicateur `sensible` de l'API, D-066) : une notification
+ * n'en donne jamais le nom. Tant que le catalogue n'est pas lu, tout salon
+ * est traite comme sensible : dans le doute, on se tait.
+ */
+export function salonSensible(name) {
+	if (!catalogue) {
+		return true;
+	}
+	let salon = typeof name === "string" ? catalogue.salons.get(cleCatalogue(name)) : null;
+	return Boolean(salon && salon.sensible);
+}
+
 /* Nom technique -> libelle affiche ; le nom sans « # » s'il est inconnu. */
 export function channelLabel(name) {
 	let meta = channelMeta(name);
