@@ -56,9 +56,9 @@ test("estServeur : un nom avec un point, ou « * »", () => {
 	assert.equal(nomServeur(false), "le t'Chat");
 });
 
-test("MODE posé par le serveur : « Le t'Chat a activé… »", () => {
+test("MODE posé par le serveur : « Le t'Chat a ralenti… » (anti-flood)", () => {
 	let t = ligne({ command: "MODE", prefix: { name: SERVEUR }, params: ["#aide", "+m"] });
-	assert.match(t, /Le t'Chat a activé le mode modération du salon/);
+	assert.match(t, /Le t'Chat a ralenti le salon pendant 2 minutes : trop de messages en même temps\./);
 	assert.doesNotMatch(t, /irc/i);
 });
 

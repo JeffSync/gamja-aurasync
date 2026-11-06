@@ -6,7 +6,7 @@ import { BufferType, ServerStatus, getMessageURL, isMessageBeforeReceipt, Settin
 import * as store from "../store.js";
 import Membership from "./membership.js";
 import { pseudoMuet } from "../lib/mutisme.js";
-import { analyseKick } from "../lib/irc-errors.js";
+import { analyseKick, translateServerNotice, translateServerMode } from "../lib/irc-errors.js";
 import { estServeur, nomServeur } from "../lib/serveur.js";
 import { motifDepart } from "../lib/evenements.js";
 import { cibleBan, expulsesAvant, verbeBan } from "../lib/ban.js";
@@ -138,6 +138,11 @@ export class LogLine extends Component {
 			}
 			target = msg.params[0];
 			let text = msg.params[1];
+			// Le serveur parle dans un salon (avis de l'anti-flood aux % et
+			// @) : jamais son texte brut (D-056)
+			if (msg.command === "NOTICE" && estServeur(msg.prefix.name) && buf.type === BufferType.CHANNEL) {
+				text = translateServerNotice(text, buf.name);
+			}
 
 			let ctcp = irc.parseCTCP(msg);
 			if (ctcp) {
@@ -279,6 +284,11 @@ export class LogLine extends Component {
 					content = html`${user} ${verb} le mode invitation du salon`;
 					break;
 				case "m":
+					// Anti-flood : le serveur ralentit le salon, puis le rouvre
+					if (estServeur(msg.prefix.name)) {
+						content = translateServerMode(plusMinus, mode);
+						break;
+					}
 					verb = plusMinus === "+" ? "a activé" : "a retiré";
 					content = html`${user} ${verb} le mode modération du salon`;
 					break;
