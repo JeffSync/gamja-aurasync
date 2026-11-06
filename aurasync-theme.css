@@ -256,18 +256,27 @@ button:active {
 #buffer-list {
 	width: 240px;
 }
+/* Logo-titre « AuraSync.fr t'Chat » (D-066) : le dessin du filigrane, sans
+   ses marges transparentes (tchat-logo-titre.png). Cadre en bordure
+   degrade cyan -> violet du site, 1,5 px, arrondi de 12 px : trois couches
+   de fond (logo et aplat sur la boite interieure, degrade sur la bordure).
+   Pas de halo ni d'agrandissement au survol : rien ne deborde sur les
+   salons. */
 #aurasync-logo {
 	display: block;
 	flex-shrink: 0;
-	height: 128px;
-	background: url("./aurasync-mark.png") no-repeat center 16px;
-	background-size: auto 88px;
-	border-bottom: 1px solid var(--aura-stroke);
-	transition: filter 0.18s ease, transform 0.18s ease;
+	height: 68px;
+	margin: 10px 10px 8px;
+	border: 1.5px solid transparent;
+	border-radius: 12px;
+	background:
+		url("./tchat-logo-titre.png") center / auto 54px no-repeat padding-box,
+		linear-gradient(var(--aura-bg-soft), var(--aura-bg-soft)) padding-box,
+		linear-gradient(120deg, var(--aura-cyan), var(--aura-violet)) border-box;
+	transition: filter 0.18s ease;
 }
 #aurasync-logo:hover {
-	filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.5));
-	transform: scale(1.03);
+	filter: brightness(1.15);
 }
 
 /* ── Prefixes de privilege ───────────────────────────────────────────── */
@@ -899,7 +908,8 @@ button:active {
 	#buffer-list.expand #aurasync-logo {
 		display: block;
 		height: 54px;
-		background-size: contain;
+		margin: 8px 10px 6px;
+		background-size: auto 42px, auto, auto;
 	}
 
 	/* ── Tiroir des membres ────────────────────────────────────────── */

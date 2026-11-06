@@ -289,3 +289,21 @@ test("polices du site servies par le fork, avec leur licence, sans « Inter »",
 	assert.match(resoudre(declsTheme("body").get("font-family")), /^"Hanken Grotesk Variable"/);
 });
 
+test("logo-titre recadre dans un cadre degrade, icone maskable declaree", () => {
+	let logo = declsTheme("#aurasync-logo");
+	assert.match(logo.get("background"), /tchat-logo-titre\.png/);
+	assert.match(logo.get("background"), /linear-gradient\(120deg, var\(--aura-cyan\), var\(--aura-violet\)\) border-box/);
+	assert.equal(logo.get("border"), "1.5px solid transparent");
+	// Aucun halo qui deborde sur les salons
+	let survol = declsTheme("#aurasync-logo:hover");
+	assert.equal(survol.has("transform"), false);
+	assert.doesNotMatch(survol.get("filter") || "", /drop-shadow/);
+	assert.ok(existsSync(new URL("tchat-logo-titre.png", racine)));
+	// Le filigrane du fil garde le logo complet
+	assert.match(declsTheme("#buffer").get("background"), /tchat-logo\.png/);
+
+	let manifeste = JSON.parse(lire("manifest.json"));
+	let maskable = manifeste.icons.filter((i) => i.purpose === "maskable");
+	assert.deepEqual(maskable, [{ src: "./favicon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" }]);
+	assert.ok(existsSync(new URL("favicon-512-maskable.png", racine)));
+});
