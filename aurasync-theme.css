@@ -256,12 +256,13 @@ button:active {
 #buffer-list {
 	width: 240px;
 }
-/* Logo-titre « AuraSync.fr t'Chat » (D-066) : le dessin du filigrane, sans
-   ses marges transparentes (tchat-logo-titre.png). Cadre en bordure
-   degrade cyan -> violet du site, 1,5 px, arrondi de 12 px : trois couches
-   de fond (logo et aplat sur la boite interieure, degrade sur la bordure).
-   Pas de halo ni d'agrandissement au survol : rien ne deborde sur les
-   salons. */
+/* Logo de base d'AuraSync, celui de l'en-tete du site (D-066, note du
+   6 novembre) : un clic ramene au site, c'est donc sa marque. logo-site.png
+   est apps/web/static/img/logo-mark.png sans sa marge transparente. Cadre en
+   bordure degrade cyan -> violet du site, 1,5 px, arrondi de 12 px : trois
+   couches de fond (logo et aplat sur la boite interieure, degrade sur la
+   bordure). Pas de halo ni d'agrandissement au survol : rien ne deborde
+   sur les salons. */
 #aurasync-logo {
 	display: block;
 	flex-shrink: 0;
@@ -270,7 +271,7 @@ button:active {
 	border: 1.5px solid transparent;
 	border-radius: 12px;
 	background:
-		url("./tchat-logo-titre.png") center / auto 54px no-repeat padding-box,
+		url("./logo-site.png") center / auto 54px no-repeat padding-box,
 		linear-gradient(var(--aura-bg-soft), var(--aura-bg-soft)) padding-box,
 		linear-gradient(120deg, var(--aura-cyan), var(--aura-violet)) border-box;
 	transition: filter 0.18s ease;

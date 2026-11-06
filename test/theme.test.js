@@ -477,16 +477,19 @@ test("polices du site servies par le fork, avec leur licence, sans « Inter »",
 	assert.match(resoudre(declsTheme("body").get("font-family")), /^"Hanken Grotesk Variable"/);
 });
 
-test("logo-titre recadre dans un cadre degrade, icone maskable declaree", () => {
+test("logo de base du site, recadre, dans un cadre degrade ; icone maskable declaree", () => {
 	let logo = declsTheme("#aurasync-logo");
-	assert.match(logo.get("background"), /tchat-logo-titre\.png/);
+	assert.match(logo.get("background"), /url\("\.\/logo-site\.png"\) center \/ auto 54px/);
+	assert.equal(logo.get("height"), "68px", "taille du bandeau du lot 1");
 	assert.match(logo.get("background"), /linear-gradient\(120deg, var\(--aura-cyan\), var\(--aura-violet\)\) border-box/);
 	assert.equal(logo.get("border"), "1.5px solid transparent");
 	// Aucun halo qui deborde sur les salons
 	let survol = declsTheme("#aurasync-logo:hover");
 	assert.equal(survol.has("transform"), false);
 	assert.doesNotMatch(survol.get("filter") || "", /drop-shadow/);
-	assert.ok(existsSync(new URL("tchat-logo-titre.png", racine)));
+	assert.ok(existsSync(new URL("logo-site.png", racine)));
+	assert.equal(existsSync(new URL("tchat-logo-titre.png", racine)), false, "l'ancien logo-titre est retire");
+	assert.doesNotMatch(THEME, /tchat-logo-titre/);
 	// Le filigrane du fil garde le logo complet
 	assert.match(declsTheme("#buffer").get("background"), /tchat-logo\.png/);
 
