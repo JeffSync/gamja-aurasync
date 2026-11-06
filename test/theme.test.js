@@ -5,6 +5,7 @@
  *   par aurasync-theme.css, au meme selecteur, hors de toute media query ;
  * - contrastes WCAG AA : 4,5:1 pour le texte, 3:1 pour les reperes, sur
  *   les fonds les plus clairs mesures dans les captures ;
+ * - icones des salons en couleur, jamais en rose, et leurs traces ;
  * - polices du site servies par le fork, plus aucune « Inter ».
  */
 
@@ -14,6 +15,10 @@ import { readFileSync, existsSync } from "node:fs";
 
 globalThis.window = globalThis.window || {};
 
+const { lireCatalogue } = await import("../lib/selection.js");
+const channels = await import("../components/aurasync-channels.js");
+const { default: BufferList, rangDansLaBarre } = await import("../components/buffer-list.js");
+const { BufferType, Unread, ServerStatus } = await import("../state.js");
 
 const racine = new URL("../", import.meta.url);
 const lire = (f) => readFileSync(new URL(f, racine), "utf8");
@@ -263,6 +268,169 @@ test("seize couleurs de pseudo : 4,5:1 sur le fil, aucune en rose", () => {
 	assert.equal(vues.size, 16, "deux couleurs de pseudo identiques");
 	let marque = sur(ETAT("#buffer .highlight .nick", "background-color"), FOND_FIL);
 	auMoins(couleur(ETAT("#buffer .highlight .nick", "color")).rgb, marque, 4.5, "pseudo d'une mention");
+});
+
+/* ── Icones des salons ────────────────────────────────────────────────── */
+
+const CATEGORIES = ["gestion", "principaux", "thematiques", "regions", "prives", "autres"];
+
+/* Melange en oklab, comme color-mix(in oklab, a p, b). */
+function oklab(rgb) {
+	let [r, g, b] = rgb.map((v) => {
+		v /= 255;
+		return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+	});
+	let l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+	let m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+	let s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+	return [
+		0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+		1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+		0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+	];
+}
+function depuisOklab([L, A, B]) {
+	let l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3;
+	let m = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3;
+	let s = (L - 0.0894841775 * A - 1.2914855480 * B) ** 3;
+	let lin = [
+		4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+		-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+		-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+	];
+	return lin.map((v) => {
+		v = Math.min(1, Math.max(0, v));
+		v = v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
+		return Math.round(v * 255);
+	});
+}
+function melange(a, b, p) {
+	let [x, y] = [oklab(couleur(a).rgb), oklab(couleur(b).rgb)];
+	return depuisOklab(x.map((v, k) => v * p + y[k] * (1 - p)));
+}
+
+test("icones : une couleur par categorie, 3:1 au moins, jamais en rose", () => {
+	let rose = couleur("var(--aura-pour-toi)").rgb;
+	for (let cat of CATEGORIES) {
+		let c = couleur(`var(--icone-${cat})`).rgb;
+		auMoins(c, BARRE, 3, `icone ${cat}`);
+		auMoins(c, FOND_ACTIF, 3, `icone ${cat} sur le salon actif`);
+		let h = teinte(c);
+		assert.ok(h < 290 || h > 350, `icone ${cat} : ${hex(c)} est rose`);
+		assert.notEqual(hex(c), hex(rose));
+	}
+	// Chaque categorie de la barre a sa regle
+	for (let cat of CATEGORIES.filter((c) => c !== "autres")) {
+		assert.equal(declsTheme(`.cat-${cat}`).get("--icone-categorie"), `var(--icone-${cat})`);
+	}
+	assert.equal(declsTheme(".chan-group").get("--icone-categorie"), "var(--icone-autres)");
+});
+
+test("icones : le degrade cyan -> violet reste a 3:1 tout du long", () => {
+	for (let k = 0; k <= 20; k++) {
+		let c = melange("var(--icone-debut)", "var(--icone-fin)", 1 - k / 20);
+		auMoins(c, BARRE, 3, `degrade a ${k * 5} %`);
+		auMoins(c, FOND_ACTIF, 3, `degrade a ${k * 5} % sur le salon actif`);
+		let h = teinte(c);
+		assert.ok(h < 290 || h > 350, `degrade a ${k * 5} % : ${hex(c)} est rose`);
+	}
+});
+
+test("icones : une seule variable bascule entre les deux variantes", () => {
+	assert.equal(VARS.get("--icone-poids-categorie"), "100%");
+	let icone = declsTheme(".chan-icon").get("color");
+	assert.match(icone, /var\(--icone-poids-categorie\)/);
+	assert.match(icone, /var\(--rang, 0\)/);
+	assert.match(icone, /var\(--icone-debut\)/);
+	assert.match(icone, /var\(--icone-fin\)/);
+	assert.equal(declsTheme(".chan-icon").get("width"), "20px");
+});
+
+test("icones : traces de pulse, ballot et ball, une icone par salon", () => {
+	channels.setCatalogue(lireCatalogue({
+		categories: [
+			{ id: "principaux", label: "Salons principaux", channels: [{ name: "#AuraSync" }, { name: "#aide" }] },
+			{ id: "thematiques", label: "Thématiques", channels: [{ name: "#politique" }, { name: "#sports" }, { name: "#cinéma" }] },
+			{ id: "regions", label: "Régions", channels: [{ name: "#bretagne" }, { name: "#île-de-france" }] },
+		],
+		selection: [],
+	}));
+	let icone = (n) => channels.channelMeta(n).icon;
+	assert.equal(icone("#AuraSync"), "pulse");
+	assert.equal(icone("#politique"), "ballot");
+	assert.equal(icone("#sports"), "ball");
+	assert.equal(icone("#cinéma"), "movie");
+	assert.equal(icone("#aide"), "lifebuoy");
+	assert.equal(icone("#bretagne"), "pin");
+	assert.equal(icone("#île-de-france"), "pin");
+	assert.equal(icone("#administration"), "shield");
+	for (let nom of ["pulse", "ballot", "ball"]) {
+		assert.ok(channels.ICONS[nom].length > 0);
+		for (let d of channels.ICONS[nom]) {
+			assert.match(d, /^M[\d.\s,a-zA-Z-]+$/);
+		}
+	}
+	for (let ancien of ["home", "columns", "trophy"]) {
+		assert.equal(channels.ICONS[ancien], undefined, `${ancien} n'est plus utilisee`);
+	}
+	channels.setCatalogue(null);
+});
+
+/* ── Barre : categorie et rang de chaque entree ───────────────────────── */
+
+test("rangDansLaBarre : de 0 en haut a 1 en bas", () => {
+	assert.equal(rangDansLaBarre(0, 1), 0);
+	assert.equal(rangDansLaBarre(0, 5), 0);
+	assert.equal(rangDansLaBarre(2, 5), 0.5);
+	assert.equal(rangDansLaBarre(4, 5), 1);
+	assert.equal(rangDansLaBarre(1, 3), 0.5);
+	assert.equal(rangDansLaBarre(1, 4), 0.333);
+});
+
+/* Noeuds d'un arbre de vnodes Preact, en profondeur, dans l'ordre. */
+function* noeuds(v) {
+	if (Array.isArray(v)) {
+		for (let x of v) {
+			yield* noeuds(x);
+		}
+	} else if (v && typeof v === "object") {
+		yield v;
+		yield* noeuds(v.props && v.props.children);
+	}
+}
+
+test("barre : chaque categorie porte sa classe, chaque entree son rang", () => {
+	channels.setCatalogue(lireCatalogue({
+		categories: [
+			{ id: "principaux", label: "Salons principaux", channels: [{ name: "#AuraSync" }, { name: "#aide" }] },
+			{ id: "regions", label: "Régions", channels: [{ name: "#bretagne" }] },
+		],
+		selection: [],
+	}));
+	let liste = [
+		["*", BufferType.SERVER], ["#équipe", BufferType.CHANNEL], ["#aide", BufferType.CHANNEL],
+		["#AuraSync", BufferType.CHANNEL], ["#bretagne", BufferType.CHANNEL],
+		["#cercle", BufferType.CHANNEL], ["Kahen", BufferType.NICK],
+	];
+	let buffers = new Map(liste.map(([name, type], k) => [k, { id: k, name, type, server: 1, unread: Unread.NONE }]));
+	let servers = new Map([[1, { status: ServerStatus.REGISTERED, users: new Map() }]]);
+	let arbre = BufferList({
+		buffers, servers, bouncerNetworks: new Map(), activeBuffer: 2,
+		onBufferClick() {}, onBufferClose() {}, onOpenChannelList() {},
+	});
+	let tout = [...noeuds(arbre)];
+	let groupes = tout.filter((n) => n.type === "details").map((n) => n.props.class);
+	assert.deepEqual(groupes, [
+		"chan-group cat-gestion",
+		"chan-group cat-principaux",
+		"chan-group cat-regions",
+		"chan-group cat-prives",
+		"chan-group cat-autres",
+	]);
+	let entrees = tout.filter((n) => n.props && n.props.buffer && "rang" in n.props);
+	assert.deepEqual(entrees.map((n) => n.props.buffer.name), ["#équipe", "#AuraSync", "#aide", "#bretagne", "Kahen", "#cercle"]);
+	assert.deepEqual(entrees.map((n) => n.props.rang), [0, 0.2, 0.4, 0.6, 0.8, 1]);
+	channels.setCatalogue(null);
 });
 
 /* ── Polices, logo, icone de la PWA ───────────────────────────────────── */

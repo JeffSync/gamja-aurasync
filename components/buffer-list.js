@@ -1,7 +1,7 @@
 import * as irc from "../lib/irc.js";
 import { strip as stripANSI } from "../lib/ansi.js";
 import { html } from "../lib/index.js";
-import { BufferType, Unread, ServerStatus, getBufferURL, getServerName } from "../state.js";
+import { BufferType, Unread, ServerStatus, getBufferURL } from "../state.js";
 import { categories, channelLabel, channelMeta, channelIcon } from "./aurasync-channels.js";
 
 const COLLAPSE_KEY = "aurasync_tchat_categories_fermees";
@@ -22,6 +22,14 @@ function writeCollapsed(set) {
 	} catch {
 		/* stockage indisponible : le repli reste valable pour la session */
 	}
+}
+
+/* Position d'une entree dans toute la barre, de 0 (en haut) a 1 (en bas). */
+export function rangDansLaBarre(index, total) {
+	if (total < 2) {
+		return 0;
+	}
+	return Math.round(index / (total - 1) * 1000) / 1000;
 }
 
 function BufferItem(props) {
@@ -76,8 +84,14 @@ function BufferItem(props) {
 		break;
 	}
 
+	// Position dans toute la barre, de 0 a 1 : le degrade des icones (D-066)
 	return html`
-		<li class="${classes.join(" ")}" role="tab" aria-selected="${props.active}">
+		<li
+			class="${classes.join(" ")}"
+			role="tab"
+			aria-selected="${props.active}"
+			style=${{ "--rang": props.rang }}
+		>
 			<a
 				href=${getBufferURL(props.buffer)}
 				title=${title}
@@ -109,6 +123,21 @@ export default function BufferList(props) {
 	let groups = new Map(ordre.map((c) => [c.id, []]));
 
 	for (let buf of buffers) {
+		let catID;
+		if (buf.type === BufferType.NICK) {
+			catID = "prives";
+		} else {
+			let meta = channelMeta(buf.name);
+			catID = meta ? meta.cat : "autres";
+		}
+		groups.get(catID).push(buf);
+	}
+
+	let visibles = ordre.filter((cat) => groups.get(cat.id).length > 0);
+	let total = visibles.reduce((n, cat) => n + groups.get(cat.id).length, 0);
+	let index = 0;
+
+	function item(buf) {
 		let server = props.servers.get(buf.server);
 
 		let bouncerNetwork = null;
@@ -116,7 +145,7 @@ export default function BufferList(props) {
 			bouncerNetwork = props.bouncerNetworks.get(server.bouncerNetID);
 		}
 
-		let item = html`
+		return html`
 			<${BufferItem}
 				key=${buf.id}
 				buffer=${buf}
@@ -125,20 +154,12 @@ export default function BufferList(props) {
 				onClick=${() => props.onBufferClick(buf)}
 				onClose=${() => props.onBufferClose(buf)}
 				active=${props.activeBuffer === buf.id}
+				rang=${rangDansLaBarre(index++, total)}
 			/>
 		`;
-
-		let catID;
-		if (buf.type === BufferType.NICK) {
-			catID = "prives";
-		} else {
-			let meta = channelMeta(buf.name);
-			catID = meta ? meta.cat : "autres";
-		}
-		groups.get(catID).push(item);
 	}
 
-	let sections = ordre.filter((cat) => groups.get(cat.id).length > 0).map((cat) => {
+	let sections = visibles.map((cat) => {
 		function handleToggle(event) {
 			let next = readCollapsed();
 			if (event.target.open) {
@@ -151,7 +172,7 @@ export default function BufferList(props) {
 
 		return html`
 			<details
-				class="chan-group"
+				class="chan-group cat-${cat.id}"
 				key=${cat.id}
 				open=${!collapsed.has(cat.id)}
 				onToggle=${handleToggle}
@@ -161,7 +182,7 @@ export default function BufferList(props) {
 					<span class="chan-group-count">${groups.get(cat.id).length}</span>
 				</summary>
 				<ul role="tablist" aria-label=${cat.label}>
-					${groups.get(cat.id)}
+					${groups.get(cat.id).map(item)}
 				</ul>
 			</details>
 		`;

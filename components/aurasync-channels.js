@@ -19,7 +19,8 @@
  * d'affichage servait d'identifiant technique.
  *
  * Les icones suivent le style des AuraMojis du site : viewBox 24, trait de
- * 1.9, extremites arrondies, pas de remplissage.
+ * 1.9, extremites arrondies, pas de remplissage. Leur couleur vient du
+ * theme, par categorie (aurasync-theme.css, « Icones des salons »).
  */
 
 import { html } from "../lib/index.js";
@@ -34,7 +35,8 @@ const ICONS = {
 		"M16.8 14.9c2.4.4 3.9 2 3.9 4.6",
 	],
 	terminal: ["M3.5 5.5h17v13h-17z", "M7 9.5l2.8 2.5-2.8 2.5", "M12.5 15h4.5"],
-	home: ["M4 10.6L12 4.2l8 6.4V19.5H4z", "M9.8 19.5v-5h4.4v5"],
+	// L'onde du logo AuraSync (D-066)
+	pulse: ["M2.8 12h3.4l2.1-5.4 3.4 10.8 2.7-7.6 1.6 2.2h5.2"],
 	lifebuoy: [
 		"M12 20.2a8.2 8.2 0 100-16.4 8.2 8.2 0 000 16.4z",
 		"M12 15.4a3.4 3.4 0 100-6.8 3.4 3.4 0 000 6.8z",
@@ -46,7 +48,8 @@ const ICONS = {
 		"M3.5 6h13.5v13.5H3.5z", "M17 9.5h3.5v7.6a2.4 2.4 0 01-3.5 2.1",
 		"M6.5 9.5h7.5", "M6.5 12.8h7.5", "M6.5 16h4.5",
 	],
-	columns: ["M12 3.4l8.2 4.8H3.8z", "M6.3 11v6.4", "M12 11v6.4", "M17.7 11v6.4", "M3.6 20.4h16.8"],
+	// Une urne et son bulletin coche (D-066)
+	ballot: ["M4 11h16v9H4z", "M8.5 11V4.2h7V11", "M10.4 7.6l1.2 1.2 2-2.4", "M9 15h6"],
 	desktop: ["M3.5 5.2h17v11.2h-17z", "M9.2 20.2h5.6", "M12 16.4v3.8"],
 	music: [
 		"M9.6 17.2a2.8 2.8 0 11-5.6 0 2.8 2.8 0 015.6 0z",
@@ -58,11 +61,11 @@ const ICONS = {
 		"M8 9.4h8a4.4 4.4 0 014.4 4.4v.9a2.9 2.9 0 01-5.5 1.3l-.5-1H9.6l-.5 1a2.9 2.9 0 01-5.5-1.3v-.9A4.4 4.4 0 018 9.4z",
 		"M7.4 12v2.4", "M6.2 13.2h2.4", "M16 13.2h.02",
 	],
-	trophy: [
-		"M8.2 4.4h7.6v4.8a3.8 3.8 0 01-7.6 0z",
-		"M8.2 6.2H5.4v1a3.2 3.2 0 003.1 3.2",
-		"M15.8 6.2h2.8v1a3.2 3.2 0 01-3.1 3.2",
-		"M12 13v4.2", "M9.4 19.6h5.2",
+	// Un ballon a coutures (D-066)
+	ball: [
+		"M12 20.4a8.4 8.4 0 100-16.8 8.4 8.4 0 000 16.8z",
+		"M12 8.8l3 2.2-1.1 3.6h-3.8L9 11z",
+		"M12 3.6v5.2", "M15 11l4.9-1.6", "M13.9 14.6l3 4.2", "M10.1 14.6l-3 4.2", "M9 11L4.1 9.4",
 	],
 	hands: [
 		"M12 19.8s-5.6-3.6-5.6-7.6A3.4 3.4 0 0112 9.4a3.4 3.4 0 015.6 2.8c0 4-5.6 7.6-5.6 7.6z",
@@ -79,16 +82,16 @@ const ICONES_SALONS = {
 	administration: "shield",
 	equipe: "users",
 	services: "terminal",
-	aurasync: "home",
+	aurasync: "pulse",
 	aide: "lifebuoy",
 	abus: "flag",
 	actualite: "news",
-	politique: "columns",
+	politique: "ballot",
 	informatique: "desktop",
 	musique: "music",
 	cinema: "movie",
 	jeux: "gamepad",
-	sports: "trophy",
+	sports: "ball",
 	addictions: "hands",
 	spiritualite: "spark",
 };

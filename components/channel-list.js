@@ -12,10 +12,14 @@ import { channelLabel, channelMeta, channelIcon } from "./aurasync-channels.js";
 
 /* Retire le bandeau 【 … 】 des topics officiels. */
 function shortTopic(topic) {
-	if (!topic) return "";
+	if (!topic) {
+		return "";
+	}
 	let t = topic.replace(/^\[\+[^\]]*\]\s*/, "");
 	let k = t.indexOf(String.fromCharCode(0x3011));
-	if (k >= 0) t = t.slice(k + 1);
+	if (k >= 0) {
+		t = t.slice(k + 1);
+	}
 	return t.trim();
 }
 
@@ -24,7 +28,7 @@ function Entry(props) {
 	let meta = official ? channelMeta(name) : null;
 
 	return html`
-		<div class="chanlist-row">
+		<div class="chanlist-row ${meta ? "cat-" + meta.cat : ""}">
 			${channelIcon(meta ? meta.icon : "chat")}
 			<div class="chanlist-main">
 				<div class="chanlist-name">

@@ -429,12 +429,57 @@ button:active {
 	margin-right: 1px;
 }
 
+/* ── Icones des salons, en couleur (D-066) ──────────────────────────── */
+/* 20 px, la hauteur de ligne du nom. Toujours en couleur, harmonisee sur
+   toute la barre, jamais en rose (reserve a « pour toi »). Deux variantes,
+   choisies par UNE variable, --icone-poids-categorie :
+   - 100 % : une couleur par categorie (--icone-<categorie>), retenue ;
+   - 0 %   : un degrade --icone-debut -> --icone-fin le long de la barre,
+     selon --rang (0 a 1), pose sur chaque entree par buffer-list.js.
+   Entre les deux, un melange. Chaque couleur est a 3:1 au moins sur la
+   barre (test/theme.test.js). Les categories inconnues prennent
+   --icone-autres. */
+
+:root {
+	--icone-poids-categorie: 100%;
+	--icone-debut: #67e8f9;        /* cyan-300 du site */
+	--icone-fin: #a78bfa;          /* violet-400 du site */
+	--icone-gestion: #fbbf24;      /* l'equipe se distingue, ambre */
+	--icone-principaux: #67e8f9;   /* cyan-300 */
+	--icone-thematiques: #a78bfa;  /* violet-400 */
+	--icone-regions: #60a5fa;      /* bleu de l'aurore du site */
+	--icone-prives: #c4b5fd;       /* violet-300 */
+	--icone-autres: #a5b4fc;       /* indigo-300 */
+}
+.chan-group {
+	--icone-categorie: var(--icone-autres);
+}
+.cat-gestion {
+	--icone-categorie: var(--icone-gestion);
+}
+.cat-principaux {
+	--icone-categorie: var(--icone-principaux);
+}
+.cat-thematiques {
+	--icone-categorie: var(--icone-thematiques);
+}
+.cat-regions {
+	--icone-categorie: var(--icone-regions);
+}
+.cat-prives {
+	--icone-categorie: var(--icone-prives);
+}
 .chan-icon {
-	width: 16px;
-	height: 16px;
+	width: 20px;
+	height: 20px;
 	flex-shrink: 0;
-	color: var(--aura-text-dim);
-	transition: color 0.16s ease;
+	/* Repli sans color-mix() : la couleur de la categorie. */
+	color: var(--icone-categorie, var(--icone-autres));
+	color: color-mix(
+		in oklab,
+		var(--icone-categorie, var(--icone-autres)) var(--icone-poids-categorie),
+		color-mix(in oklab, var(--icone-debut) calc(100% - var(--rang, 0) * 100%), var(--icone-fin))
+	);
 }
 
 /* ── Etats d'une entree (D-066) ─────────────────────────────────────── */
@@ -470,13 +515,6 @@ button:active {
 }
 #buffer-list li.active .chan-hash {
 	color: var(--aura-cyan);
-}
-#buffer-list li.active .chan-icon {
-	color: var(--aura-cyan);
-}
-#buffer-list li.type-channel:hover .chan-icon,
-#buffer-list li.type-nick:hover .chan-icon {
-	color: var(--aura-text-soft);
 }
 
 /* ── Message d'erreur flottant ───────────────────────────────────────── */
