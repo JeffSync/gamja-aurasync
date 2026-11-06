@@ -256,6 +256,16 @@ test("salon actif : barre cyan de 3 px a 3:1", () => {
 	auMoins(couleur(barre).rgb, FOND_ACTIF, 3, "barre du salon actif");
 });
 
+test("focus clavier : anneau cyan de 2 px a 3:1, sur les salons, les categories et « Salons »", () => {
+	for (let sel of ["#buffer-list li a:focus-visible", ".chan-group-title:focus-visible", "#chan-browse:focus-visible"]) {
+		assert.match(ETAT(sel, "outline") || "", /^2px solid /, sel);
+	}
+	let anneau = ETAT("#buffer-list li a:focus-visible", "outline").match(/var\(--[\w-]+\)|#[0-9a-f]{6}/i)[0];
+	auMoins(couleur(anneau).rgb, BARRE, 3, "anneau de focus");
+	auMoins(couleur(anneau).rgb, FOND_ACTIF, 3, "anneau de focus sur le salon actif");
+	assert.match(ETAT("#buffer-list li a:focus-visible", "outline"), /^2px solid/);
+});
+
 test("seize couleurs de pseudo : 4,5:1 sur le fil, aucune en rose", () => {
 	let vues = new Set();
 	for (let n = 1; n <= 16; n++) {

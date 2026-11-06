@@ -517,6 +517,17 @@ button:active {
 	color: var(--aura-cyan);
 }
 
+/* Focus clavier, distinct de la selection : un anneau cyan de 2 px, a
+   l'exterieur de l'entree. « Je suis ici » (barre) et « mon clavier est
+   ici » (anneau) se cumulent sans se confondre. */
+#buffer-list li a:focus-visible,
+.chan-group-title:focus-visible,
+#chan-browse:focus-visible,
+#aurasync-logo:focus-visible {
+	outline: 2px solid var(--aura-cyan);
+	outline-offset: 2px;
+}
+
 /* ── Message d'erreur flottant ───────────────────────────────────────── */
 /* L'original se colle a droite sans largeur maximale : le texte sortait
    de l'ecran. On le recentre et on le borne. */
