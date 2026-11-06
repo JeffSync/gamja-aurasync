@@ -1,34 +1,28 @@
 /*
- * Metadonnees des salons AuraSync : categorie, icone, libelle.
+ * Salons AuraSync dans la barre laterale et le panneau « Salons ».
  *
- * Source de verite unique pour la barre laterale du t'Chat.
+ * Les noms, les categories et les libelles des salons ouverts a tous
+ * viennent du catalogue de l'API (GET /api/irc/channels, D-065), lu par
+ * lib/selection.js : aucune liste de salons n'est ecrite ici. Ce fichier ne
+ * garde que ce qui est propre au t'Chat :
+ * - les icones, par salon et par categorie ;
+ * - les salons de l'equipe (categorie « Gestion »), que l'API ne sert
+ *   jamais ;
+ * - les categories du t'Chat lui-meme (« Messages privés », « Autres »).
  *
- * Les CLES de CHANNELS restent en minuscules SANS ACCENT et ne changent
- * jamais : la recherche passe par normalizeKey(), qui retire les
- * diacritiques. Un salon peut donc etre renomme cote serveur (#cinema ->
- * #cinéma) sans toucher a ce fichier. Ne jamais accentuer une cle : ce
- * serait refaire l'erreur de D-021, ou une chaine d'affichage servait
- * d'identifiant technique.
+ * Avant que le catalogue soit lu, ou si l'API ne repond pas, un salon
+ * s'affiche sous son nom, dans « Autres » : rien ne casse.
  *
- * Le libelle affiche est donne par `label`. Le repli automatique (majuscule
- * sur chaque segment) se trompe des qu'un nom porte un accent ou une
- * particule : "Ile-De-France" au lieu de "Île-de-France". Tout salon dans
- * ce cas doit avoir un `label` explicite.
+ * Les CLES d'icones sont en minuscules SANS ACCENT (iconKey) : un salon
+ * renomme cote serveur (#cinema -> #cinéma) garde son icone. Ne jamais
+ * accentuer une cle : ce serait refaire l'erreur de D-021, ou une chaine
+ * d'affichage servait d'identifiant technique.
  *
  * Les icones suivent le style des AuraMojis du site : viewBox 24, trait de
  * 1.9, extremites arrondies, pas de remplissage.
  */
 
 import { html } from "../lib/index.js";
-
-export const CATEGORIES = [
-	{ id: "gestion", label: "Gestion" },
-	{ id: "principaux", label: "Principaux" },
-	{ id: "thematiques", label: "Thématiques" },
-	{ id: "regions", label: "Régions" },
-	{ id: "prives", label: "Messages privés" },
-	{ id: "autres", label: "Autres" },
-];
 
 /* Traces des icones : tableaux de primitives, comme les AuraMojis. */
 const ICONS = {
@@ -80,62 +74,56 @@ const ICONS = {
 	hash: ["M9.2 4.2L7.4 19.8", "M16.6 4.2l-1.8 15.6", "M4.6 9h15", "M4 15h15"],
 };
 
-/* Salon technique (cle SANS ACCENT) -> categorie + icone + libelle. */
-export const CHANNELS = {
-	administration: { cat: "gestion", icon: "shield" },
-	equipe: { cat: "gestion", icon: "users", label: "Équipe" },
-	services: { cat: "gestion", icon: "terminal" },
+/* Icone par salon (cle SANS ACCENT), puis par categorie. */
+const ICONES_SALONS = {
+	administration: "shield",
+	equipe: "users",
+	services: "terminal",
+	aurasync: "home",
+	aide: "lifebuoy",
+	abus: "flag",
+	actualite: "news",
+	politique: "columns",
+	informatique: "desktop",
+	musique: "music",
+	cinema: "movie",
+	jeux: "gamepad",
+	sports: "trophy",
+	addictions: "hands",
+	spiritualite: "spark",
+};
+const ICONES_CATEGORIES = { regions: "pin" };
 
-	aurasync: { cat: "principaux", icon: "home", label: "AuraSync", rank: 1 },
-	aide: { cat: "principaux", icon: "lifebuoy", rank: 2 },
-	abus: { cat: "principaux", icon: "flag", rank: 3 },
-
-	actualite: { cat: "thematiques", icon: "news", label: "Actualité" },
-	politique: { cat: "thematiques", icon: "columns" },
-	informatique: { cat: "thematiques", icon: "desktop" },
-	musique: { cat: "thematiques", icon: "music" },
-	cinema: { cat: "thematiques", icon: "movie", label: "Cinéma" },
-	jeux: { cat: "thematiques", icon: "gamepad" },
-	sports: { cat: "thematiques", icon: "trophy" },
-	addictions: { cat: "thematiques", icon: "hands" },
-	spiritualite: { cat: "thematiques", icon: "spark", label: "Spiritualité" },
+/* Salons de l'equipe : jamais au catalogue de l'API. */
+const GESTION = {
+	administration: "Administration",
+	equipe: "Équipe",
+	services: "Services",
 };
 
-/*
- * Les treize regions partagent la meme icone. Les libelles suivent
- * l'orthographe officielle : "Grand Est" et "Pays de la Loire" s'ecrivent
- * sans trait d'union, "Centre-Val de Loire" n'en porte qu'un.
- */
-const REGIONS = {
-	"auvergne-rhone-alpes": "Auvergne-Rhône-Alpes",
-	"bourgogne-franche-comte": "Bourgogne-Franche-Comté",
-	"bretagne": "Bretagne",
-	"centre-val-de-loire": "Centre-Val de Loire",
-	"corse": "Corse",
-	"grand-est": "Grand Est",
-	"hauts-de-france": "Hauts-de-France",
-	"ile-de-france": "Île-de-France",
-	"normandie": "Normandie",
-	"nouvelle-aquitaine": "Nouvelle-Aquitaine",
-	"occitanie": "Occitanie",
-	"pays-de-la-loire": "Pays de la Loire",
-	"provence-alpes-cote-dazur": "Provence-Alpes-Côte d'Azur",
-	/* Variante avec tiret : #provence-alpes-côte-d-azur */
-	"provence-alpes-cote-d-azur": "Provence-Alpes-Côte d'Azur",
-};
+const AVANT = [{ id: "gestion", label: "Gestion" }];
+const APRES = [
+	{ id: "prives", label: "Messages privés" },
+	{ id: "autres", label: "Autres" },
+];
 
-for (let [key, label] of Object.entries(REGIONS)) {
-	CHANNELS[key] = { cat: "regions", icon: "pin", label };
+/* Le catalogue lu a l'API : { categories, salons } (lib/selection.js). */
+let catalogue = null;
+
+export function setCatalogue(lu) {
+	catalogue = lu && lu.salons instanceof Map ? lu : null;
+}
+
+/* Categories, dans l'ordre d'affichage. */
+export function categories() {
+	return AVANT.concat(catalogue ? catalogue.categories : [], APRES);
 }
 
 /*
- * Nom de salon -> cle de CHANNELS.
- *
- * Retire le prefixe, passe en minuscules, puis supprime les diacritiques
- * (NFD isole les accents comme caracteres combinants U+0300-U+036F, qu'on
- * jette). "#Île-de-France" et "#ile-de-france" donnent donc la meme cle.
+ * Nom de salon -> cle d'icone : sans prefixe, minuscules, sans diacritiques
+ * (NFD isole les accents, qu'on jette).
  */
-function normalizeKey(name) {
+export function iconKey(name) {
 	return name
 		.replace(/^[#&]+/, "")
 		.toLowerCase()
@@ -143,23 +131,39 @@ function normalizeKey(name) {
 		.replace(/[\u0300-\u036f]/g, "");
 }
 
-/* Nom technique -> libelle affiche. */
-export function channelLabel(name) {
-	let meta = CHANNELS[normalizeKey(name)];
-	if (meta && meta.label) {
-		return meta.label;
-	}
-	/* Repli : majuscule sur chaque segment. Approximatif — preferer un
-	 * `label` explicite des qu'un accent ou une particule est en jeu. */
-	return name
-		.replace(/^[#&]+/, "")
-		.split("-")
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join("-");
+/* Casse ASCII seule, comme le serveur et l'API. */
+function cleCatalogue(name) {
+	return name.normalize("NFC").replace(/[A-Z]/g, (c) => c.toLowerCase());
 }
 
+/*
+ * { cat, icon, label, rank } d'un salon connu (catalogue ou equipe), ou
+ * null. `rank` suit l'ordre du catalogue dans les salons principaux.
+ */
 export function channelMeta(name) {
-	return CHANNELS[normalizeKey(name)] || null;
+	if (typeof name !== "string") {
+		return null;
+	}
+	let key = iconKey(name);
+	let salon = catalogue ? catalogue.salons.get(cleCatalogue(name)) : null;
+	if (salon) {
+		return {
+			cat: salon.category,
+			icon: ICONES_SALONS[key] || ICONES_CATEGORIES[salon.category] || "hash",
+			label: salon.label,
+			rank: salon.category === "principaux" ? salon.rang + 1 : undefined,
+		};
+	}
+	if (GESTION[key]) {
+		return { cat: "gestion", icon: ICONES_SALONS[key], label: GESTION[key] };
+	}
+	return null;
+}
+
+/* Nom technique -> libelle affiche ; le nom sans « # » s'il est inconnu. */
+export function channelLabel(name) {
+	let meta = channelMeta(name);
+	return meta ? meta.label : name.replace(/^[#&]+/, "");
 }
 
 export function channelIcon(iconName) {

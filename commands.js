@@ -58,10 +58,18 @@ const commands = [
 				throw new Error("Indique le nom du salon");
 			}
 			if (args.length > 1) {
-				app.open(channel, null, args[1]);
+				app.rejoindre(channel, null, args[1]);
 			} else {
-				app.open(channel);
+				app.rejoindre(channel);
 			}
+		},
+	},
+	{
+		name: "part",
+		usage: "[salon]",
+		description: "Quitter un salon (le salon courant si aucun n'est indiqué)",
+		execute: (app, args) => {
+			app.partir(args[0]);
 		},
 	},
 	{

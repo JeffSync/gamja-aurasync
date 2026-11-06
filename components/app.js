@@ -27,6 +27,8 @@ import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
 import { configAutojoin, connectAutojoin, takeOneShot, buffersToRestore } from "../lib/autojoin.js";
+import { createSelection } from "../lib/selection.js";
+import { setCatalogue } from "./aurasync-channels.js";
 import { expulsionAuto, cleSalon, noterExpulsion, oublierExpulsion, refusApresExpulsion } from "../lib/sanction-auto.js";
 import { marquerHistorique } from "../lib/historique.js";
 import { commandesSanction, demandeMotif } from "../lib/connexion.js";
@@ -250,6 +252,15 @@ export default class App extends Component {
 		// D-062 : derniere expulsion automatique d'AuraBot par salon, pour
 		// expliquer le refus 474 qui suit. Memoire de session seulement.
 		this.expulsionsAuto = new Map();
+		// D-065 : salons du compte, lus a l'API et mis a jour par les gestes
+		// (lib/selection.js). Le catalogue nomme et range les salons.
+		this.selection = createSelection({
+			fetch: (url, init) => window.fetch(url, init),
+			onCatalogue: (lu) => {
+				setCatalogue(lu);
+				this.setState({ catalogueSalons: lu });
+			},
+		});
 
 		this.handleJoinSubmit = this.handleJoinSubmit.bind(this);
 		this.handleBufferListClick = this.handleBufferListClick.bind(this);
@@ -866,7 +877,7 @@ export default class App extends Component {
 						if (this.bufferStore.put(stored)) {
 							this.sendReadReceipt(client, stored);
 						}
-						this.open(channel, serverID);
+						this.rejoindre(channel, serverID);
 					} else {
 						// TODO: scroll to message
 						this.switchBuffer({ server: serverID, name: bufName });
@@ -1801,7 +1812,7 @@ export default class App extends Component {
 	}
 
 	handleChannelListJoin(name) {
-		this.open(name);
+		this.rejoindre(name);
 		this.setState({ chanList: null });
 	}
 
@@ -1923,7 +1934,7 @@ export default class App extends Component {
 			this.switchBuffer({ server: serverID });
 		} else if (client.isChannel(target)) {
 			this.switchToChannel = target;
-			client.join(target, password).catch((err) => {
+			return client.join(target, password).catch((err) => {
 				this.showError((err && this.refusBanAuto(serverID, err.msg)) || err);
 			});
 		} else {
@@ -1931,6 +1942,33 @@ export default class App extends Component {
 			this.createBuffer(serverID, target);
 			this.switchBuffer({ server: serverID, name: target });
 		}
+	}
+
+	// D-065 : rejoindre par un geste (/join, panneau « Salons », fenetre
+	// « Rejoindre », invitation). Une fois le JOIN accepte, le salon entre
+	// dans la selection du compte ; un refus (474…) ne la change pas.
+	rejoindre(target, serverID, password) {
+		let promesse = this.open(target, serverID, password);
+		if (promesse) {
+			promesse.then((ok) => {
+				if (ok) {
+					this.selection.ajouter(target);
+				}
+			});
+		}
+	}
+
+	// /part [salon] : comme « Partir » sur l'onglet du salon.
+	partir(nom) {
+		let actif = this.state.buffers.get(this.state.activeBuffer);
+		if (!actif) {
+			throw new Error("Aucun salon ouvert");
+		}
+		let buf = nom ? State.getBuffer(this.state, { server: actif.server, name: nom }) : actif;
+		if (!buf || buf.type !== BufferType.CHANNEL) {
+			throw new Error(nom ? "Tu n'es pas dans " + nom : "Ouvre le salon à quitter, ou indique son nom");
+		}
+		this.close(buf.id);
 	}
 
 	close(id) {
@@ -1997,6 +2035,9 @@ export default class App extends Component {
 			if (buf.joined) {
 				client.send({ command: "PART", params: [buf.name] });
 			}
+			// « Partir » est un choix : le salon sort de la selection du
+			// compte (D-065). Une expulsion ne passe pas par ici.
+			this.selection.retirer(buf.name);
 			// fallthrough
 		case BufferType.NICK:
 			if (this.state.activeBuffer === buf.id) {
@@ -2176,14 +2217,13 @@ export default class App extends Component {
 			this.openDialog("join", { server: buf.server });
 			break;
 		case BufferType.CHANNEL:
-			let client = this.clients.get(buf.server);
-			client.send({ command: "JOIN", params: [buf.name] });
+			this.rejoindre(buf.name, buf.server);
 			break;
 		}
 	}
 
 	handleJoinSubmit(data) {
-		this.open(data.channel, this.state.dialogData.server);
+		this.rejoindre(data.channel, this.state.dialogData.server);
 		this.dismissDialog();
 	}
 
@@ -2540,6 +2580,7 @@ export default class App extends Component {
 
 	componentDidMount() {
 		this.baseTitle = document.title;
+		this.selection.charger();
 		setupKeybindings(this);
 		window.addEventListener("focus", this.handleWindowFocus);
 		window.addEventListener("hashchange", this.handleWindowHashChange);

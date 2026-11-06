@@ -2,7 +2,7 @@ import * as irc from "../lib/irc.js";
 import { strip as stripANSI } from "../lib/ansi.js";
 import { html } from "../lib/index.js";
 import { BufferType, Unread, ServerStatus, getBufferURL, getServerName } from "../state.js";
-import { CATEGORIES, channelLabel, channelMeta, channelIcon } from "./aurasync-channels.js";
+import { categories, channelLabel, channelMeta, channelIcon } from "./aurasync-channels.js";
 
 const COLLAPSE_KEY = "aurasync_tchat_categories_fermees";
 
@@ -105,7 +105,8 @@ export default function BufferList(props) {
 	});
 
 	/* Repartition par categorie, dans l'ordre declare. */
-	let groups = new Map(CATEGORIES.map((c) => [c.id, []]));
+	let ordre = categories();
+	let groups = new Map(ordre.map((c) => [c.id, []]));
 
 	for (let buf of buffers) {
 		let server = props.servers.get(buf.server);
@@ -137,7 +138,7 @@ export default function BufferList(props) {
 		groups.get(catID).push(item);
 	}
 
-	let sections = CATEGORIES.filter((cat) => groups.get(cat.id).length > 0).map((cat) => {
+	let sections = ordre.filter((cat) => groups.get(cat.id).length > 0).map((cat) => {
 		function handleToggle(event) {
 			let next = readCollapsed();
 			if (event.target.open) {
