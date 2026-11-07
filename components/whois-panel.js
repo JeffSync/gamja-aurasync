@@ -9,8 +9,11 @@
  *   d'adresse ;
  * - l'adresse reelle (378), que UnrealIRCd n'envoie qu'aux opers et a
  *   soi-meme ;
+ * - le role sur le reseau (313), traduit, seulement si le serveur l'envoie ;
  * - tous les salons du 319, avec leur prefixe de rang, sans aucun filtre :
- *   le serveur retire lui-meme les salons +s pour qui n'y est pas ;
+ *   le serveur retire lui-meme les salons +s pour qui n'y est pas. Chaque
+ *   salon est un bouton : un clic le rejoint, ou l'ouvre si on y est deja
+ *   (seconde retouche du 7 novembre) ;
  * - l'inactivite et l'heure de connexion (317).
  * Les donnees de moderation (score de reputation, groupes de securite) sont
  * volontairement ignorees.
@@ -28,6 +31,54 @@ export function duree(seconds) {
 	if (h < 24) return h + " h " + (m % 60) + " min";
 	let d = Math.floor(h / 24);
 	return d + " j " + (h % 24) + " h";
+}
+
+/*
+ * Le 313 d'UnrealIRCd 6.2.7, lu dans ses sources (src/modules/whois.c et
+ * usermodes/servicebot.c) : « is an IRC Operator », suivi pour qui a le
+ * detail complet (un oper, soi-meme) de « (login) [operclass] » ; ou bien
+ * « is a Network Service ». La classe precise le role ; le login n'est
+ * jamais montre. Les classes sont celles de operclass.default.conf.
+ */
+const CLASSES = {
+	"netadmin": "Administrateur du réseau",
+	"services-admin": "Administrateur des services",
+	"admin": "Administrateur du serveur",
+	"globop": "Opérateur du réseau",
+	"locop": "Opérateur du serveur",
+};
+export const ROLE_INCONNU = "Rôle particulier sur le t'Chat";
+
+/* { libelle, connu } ; un texte inconnu donne la phrase de repli (D-056). */
+export function roleReseau(texte) {
+	let m = /^is (an IRC Operator|a Network Service)(?: \(([^)]*)\))?(?: \[([^\]]*)\])?$/.exec((texte || "").trim());
+	if (!m) {
+		return { libelle: ROLE_INCONNU, connu: false };
+	}
+	if (m[1] === "a Network Service") {
+		return { libelle: "Service du t'Chat", connu: true };
+	}
+	let classe = (m[3] || "").replace(/-with-override$/, "");
+	return { libelle: CLASSES[classe] || "Opérateur du réseau", connu: true };
+}
+
+/*
+ * Le nom d'un salon du 319, sans ce qui le precede : le prefixe de rang
+ * (@, %, +, ou plusieurs avec multi-prefix) et le « ? » ou « ! » qu'UnrealIRCd
+ * ajoute pour un oper. `syntaxe` : { types, prefixes } du serveur (ISUPPORT
+ * CHANTYPES et PREFIX). Un caractere de tete n'est retire que s'il reste
+ * ensuite un nom de salon : « &local » reste « &local ». null si ce n'est
+ * pas un salon.
+ */
+export function nomDuSalon(entree, syntaxe) {
+	let types = (syntaxe && syntaxe.types) || "#";
+	let prefixes = ((syntaxe && syntaxe.prefixes) || "~&@%+") + "?!";
+	let i = 0;
+	while (i < entree.length - 1 && prefixes.includes(entree[i]) && [...entree.slice(i + 1)].some((c) => types.includes(c))) {
+		i++;
+	}
+	let nom = entree.slice(i);
+	return nom && types.includes(nom[0]) ? nom : null;
 }
 
 function Row(props) {
@@ -53,6 +104,8 @@ export function lignesWhois(whois) {
 		adresse = (m ? m[1] : texte) || null;
 	}
 
+	let role = whois["313"] ? roleReseau(whois["313"].params[2]) : null;
+
 	let salons = null;
 	if (whois["319"]) {
 		let list = (whois["319"].params[2] || "").trim();
@@ -70,11 +123,11 @@ export function lignesWhois(whois) {
 			});
 		}
 	}
-	return { masque, adresse, salons, inactivite, connexion };
+	return { masque, adresse, role, salons, inactivite, connexion };
 }
 
 export function SurLeTchat(props) {
-	let { data, loading, error } = props;
+	let { data, loading, error, syntaxe, onSalon } = props;
 	if (loading) {
 		return html`<div class="whois-wait">Recherche…</div>`;
 	}
@@ -86,11 +139,21 @@ export function SurLeTchat(props) {
 	}
 	let l = lignesWhois(data);
 	let salons = l.salons
-		? html`<div class="whois-chans">${l.salons.map((c) => html`<span>${c}</span>`)}</div>`
+		? html`<div class="whois-chans">${l.salons.map((entree) => {
+			let nom = nomDuSalon(entree, syntaxe);
+			if (!nom || !onSalon) {
+				return html`<span>${entree}</span>`;
+			}
+			return html`
+				<button type="button" class="whois-salon" title=${"Aller sur " + nom}
+					aria-label=${"Aller sur " + nom} onClick=${() => onSalon(nom)}>${entree}</button>
+			`;
+		})}</div>`
 		: null;
 	return html`
 		<${Row} label="Masque" value=${l.masque}/>
 		<${Row} label="Adresse réelle" value=${l.adresse}/>
+		<${Row} label="Rôle réseau" value=${l.role && l.role.libelle}/>
 		<${Row} label="Salons" value=${salons}/>
 		<${Row} label="Inactivité" value=${l.inactivite}/>
 		<${Row} label="Connexion" value=${l.connexion}/>

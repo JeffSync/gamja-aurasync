@@ -2,9 +2,10 @@
  * La fiche d'un pseudo (D-066, point 8, variante A).
  *
  * Une seule fiche remplace le menu d'un pseudo et « Qui est-ce ? » : avatar
- * de 64 px, nom affiche, @pseudo, insigne du role du site, rang dans le
- * salon, puis les actions, puis la moderation (D-060) pour % et @, puis le
- * WHOIS. Le contenu, cas par cas, est decide par lib/fiche.js. En mobile,
+ * de 64 px dans l'anneau du profil du site, nom affiche, @pseudo dans le
+ * degrade du site, insigne du role, puis les actions, puis la moderation
+ * (D-060) pour % et @, puis le WHOIS. Ni rang dans le salon ni statut du
+ * profil (seconde retouche du 7 novembre). Le contenu, cas par cas, est decide par lib/fiche.js. En mobile,
  * feuille du bas (CSS).
  *
  * Le WHOIS se montre a tous (point 8 revise le 7 novembre), sans repli : il
@@ -13,7 +14,7 @@
 
 import { html, Component } from "../lib/index.js";
 import { peutRendreMuet } from "../lib/mutisme.js";
-import { contenuFiche, rangSalon, TEXTES } from "../lib/fiche.js";
+import { avecAnneau, contenuFiche, TEXTES } from "../lib/fiche.js";
 import { SurLeTchat } from "./whois-panel.js";
 import Insigne from "./insigne.js";
 
@@ -132,23 +133,24 @@ export default class NickMenu extends Component {
 		left = Math.max(8, left);
 		top = Math.max(8, top);
 
-		let rang = rangSalon(targetMembership);
 		let canModerate = contenu.moderation && rank(selfMembership) >= 3;
 		let targetRank = rank(targetMembership);
 
 		let badges = null;
-		if (contenu.role || rang) {
+		if (contenu.role) {
 			badges = html`
 				<div class="fiche-badges">
-					${contenu.role ? html`
-						<span class="fiche-role" style=${"color:" + contenu.role.teinte}>
-							<${Insigne} insigne=${contenu.role} taille=${36}/>
-							<span class="fiche-role-libelle">${contenu.role.libelle}</span>
-						</span>
-					` : null}
-					${rang ? html`<span class="fiche-rang">${rang}</span>` : null}
+					<span class="fiche-role" style=${"color:" + contenu.role.teinte}>
+						<${Insigne} insigne=${contenu.role} taille=${36}/>
+						<span class="fiche-role-libelle">${contenu.role.libelle}</span>
+					</span>
 				</div>
 			`;
+		}
+
+		let avatar = html`<${AvatarFiche} avatar=${contenu.avatar} taille=${64}/>`;
+		if (avecAnneau(contenu.avatar)) {
+			avatar = html`<span class="av-aura">${avatar}</span>`;
 		}
 
 		let actions = [];
@@ -205,14 +207,14 @@ export default class NickMenu extends Component {
 			`;
 		}
 
-		// Le WHOIS, pour tous et pour chaque cas : ce que le serveur envoie
+		// Le WHOIS, pour tous et pour chaque cas : ce que le serveur envoie,
+		// sans titre, directement sous le trait
 		let infos = null;
 		if (whois && (whois.loading || whois.error || whois.data)) {
 			infos = html`
 				<section class="fiche-whois" aria-label=${TEXTES.whois}>
 					<div class="nick-menu-sep"></div>
-					<div class="nick-menu-title">${TEXTES.whois.toUpperCase()}</div>
-					<${SurLeTchat} ...${whois}/>
+					<${SurLeTchat} ...${whois} syntaxe=${this.props.syntaxe} onSalon=${this.props.onSalon}/>
 				</section>
 			`;
 		}
@@ -226,10 +228,10 @@ export default class NickMenu extends Component {
 				tabindex="-1"
 			>
 				<div class="fiche-tete">
-					<${AvatarFiche} avatar=${contenu.avatar} taille=${64}/>
+					${avatar}
 					<div class="fiche-ident">
 						<div class="fiche-nom">${contenu.titre}</div>
-						<div class="fiche-pseudo">${contenu.pseudo}</div>
+						<div class="fiche-pseudo handle-grad">${contenu.pseudo}</div>
 						${badges}
 					</div>
 					<button class="fiche-fermer" type="button" onClick=${this.props.onClose}

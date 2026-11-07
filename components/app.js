@@ -22,6 +22,7 @@ import { strip as stripANSI } from "../lib/ansi.js";
 import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEventsDisplayMode, State, getServerName, receiptFromMessage, isReceiptBefore, isMessageBeforeReceipt, SettingsContext, reglagesEffectifs } from "../state.js";
 import commands from "../commands.js";
 import NickMenu from "./nick-menu.js";
+import { roleReseau } from "./whois-panel.js";
 import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
@@ -315,6 +316,7 @@ export default class App extends Component {
 		this.handlePageShow = this.handlePageShow.bind(this);
 		this.handleMotifSubmit = this.handleMotifSubmit.bind(this);
 		this.openWhois = this.openWhois.bind(this);
+		this.allerSurSalon = this.allerSurSalon.bind(this);
 		this.openChannelList = this.openChannelList.bind(this);
 		this.closeChannelList = this.closeChannelList.bind(this);
 		this.handleChannelListJoin = this.handleChannelListJoin.bind(this);
@@ -1886,7 +1888,32 @@ export default class App extends Component {
 			}
 			return { whois: { ...state.whois, loading: false, ...maj } };
 		});
-		client.whois(nick).then((data) => range({ data }), () => range({ error: true }));
+		client.whois(nick).then((data) => {
+			// D-056 : un 313 que la fiche ne sait pas traduire part dans la console
+			if (data["313"] && !roleReseau(data["313"].params[2]).connu) {
+				console.error("Rôle réseau non traduit (313) :", data["313"].params[2]);
+			}
+			range({ data });
+		}, () => range({ error: true }));
+	}
+
+	/*
+	 * Un salon du WHOIS de la fiche : l'ouvrir si j'y suis deja, sinon le
+	 * rejoindre comme par /join (D-065 : la selection suit, et un salon
+	 * jamais retenu comme #addictions n'y entre pas). La fiche se ferme.
+	 */
+	allerSurSalon(nom) {
+		let buf = this.state.buffers.get(this.state.activeBuffer);
+		this.closeNickMenu();
+		if (!buf) {
+			return;
+		}
+		let salon = State.getBuffer(this.state, { server: buf.server, name: nom });
+		if (salon && salon.joined) {
+			this.switchBuffer(salon.id);
+			return;
+		}
+		this.rejoindre(nom, buf.server);
 	}
 
 	openChannelList() {
@@ -3001,9 +3028,17 @@ export default class App extends Component {
 			let mBuf = this.state.buffers.get(this.state.activeBuffer);
 			let members = mBuf && mBuf.members ? mBuf.members : null;
 			let selfNick = null;
+			let syntaxe = null;
 			if (mBuf) {
 				let c = this.clients.get(mBuf.server);
 				selfNick = c ? c.nick : null;
+				if (c) {
+					// Pour lire les salons du WHOIS : CHANTYPES et PREFIX du serveur
+					syntaxe = {
+						types: c.isupport.chanTypes(),
+						prefixes: c.isupport.membershipModes().map((m) => m.prefix).join(""),
+					};
+				}
 			}
 			let lue = this.state.fiches.get(this.state.nickMenu.nick.toLowerCase());
 			let etatFiche = {
@@ -3022,6 +3057,8 @@ export default class App extends Component {
 					etat=${etatFiche}
 					whois=${this.state.whois && this.state.whois.nick === this.state.nickMenu.nick ? this.state.whois : null}
 					onAction=${this.handleNickMenuAction}
+					onSalon=${this.allerSurSalon}
+					syntaxe=${syntaxe}
 					onClose=${this.closeNickMenu}
 				/>
 			`;

@@ -21,13 +21,13 @@ globalThis.window.localStorage = {
 globalThis.localStorage = globalThis.window.localStorage;
 
 const fiche = await import("../lib/fiche.js");
-const { contenuFiche, avatarDe, rangSalon, creerCacheFiches, dernierRecu, trierPrives, TEXTES, DUREE_CACHE } = fiche;
+const { contenuFiche, avatarDe, avecAnneau, creerCacheFiches, dernierRecu, trierPrives, TEXTES, DUREE_CACHE } = fiche;
 const { BufferType, Unread, ServerStatus } = await import("../state.js");
 const { default: NickMenu } = await import("../components/nick-menu.js");
 const { default: BufferList } = await import("../components/buffer-list.js");
 const { default: App } = await import("../components/app.js");
 const channels = await import("../components/aurasync-channels.js");
-const { lignesWhois } = await import("../components/whois-panel.js");
+const { lignesWhois, nomDuSalon, roleReseau, ROLE_INCONNU } = await import("../components/whois-panel.js");
 const { default: Client } = await import("../lib/client.js");
 const irc = await import("../lib/irc.js");
 
@@ -42,25 +42,25 @@ function cas(card) {
 	return contenuFiche("Kahen", { fiche: card });
 }
 
-test("cas 1, moi : « Mon profil », mon statut, et rien d'autre", () => {
+test("cas 1, moi : « Mon profil », et rien d'autre", () => {
 	let c = cas({ ...PROFIL, moi: true, prive: true });
 	assert.equal(c.titre, "Kahen L.");
 	assert.equal(c.pseudo, "@Kahen");
 	assert.deepEqual(c.lien, { texte: "Mon profil", href: "/u/Kahen" });
 	assert.deepEqual(c.actions, []);
 	assert.equal(c.moderation, false);
-	assert.equal(c.sousNote, "en vacances");
+	assert.equal(c.sousNote, null, "le statut du profil n'est plus affiché");
 	assert.equal(c.note, TEXTES.prive);
 });
 
-test("cas 2, profil public : avatar, nom, rôle, statut, « Voir le profil », message, mention, modération", () => {
+test("cas 2, profil public : avatar, nom, rôle, « Voir le profil », message, mention, modération ; pas de statut", () => {
 	let c = cas(PROFIL);
 	assert.equal(c.titre, "Kahen L.");
 	assert.equal(c.role.role, "moderator");
 	assert.equal(c.role.libelle, "Modérateur");
 	assert.equal(c.role.teinte, "#6ee7b7");
 	assert.equal(c.note, null);
-	assert.equal(c.sousNote, "en vacances");
+	assert.equal(c.sousNote, null, "l'API envoie le statut, la fiche ne l'affiche plus");
 	assert.deepEqual(c.lien, { texte: "Voir le profil", href: "/u/Kahen" });
 	assert.deepEqual(c.actions, ["query", "mention"]);
 	assert.equal(c.moderation, true);
@@ -135,14 +135,11 @@ test("avatar : seule une image de /uploads/ est chargée ; sinon l'initiale sur 
 	assert.equal(avatarDe({ ...PROFIL, pseudo: "élise", avatarUrl: null }, "élise").lettre, "É");
 });
 
-test("rang dans le salon : libellés neutres, ~ et & n'existent plus", () => {
-	assert.equal(rangSalon("@"), "gère le salon");
-	assert.equal(rangSalon("%"), "modère le salon");
-	assert.equal(rangSalon("+"), "a la parole");
-	assert.equal(rangSalon("@+"), "gère le salon");
-	assert.equal(rangSalon("~"), "gère le salon");
-	assert.equal(rangSalon(""), null);
-	assert.equal(rangSalon(undefined), null);
+test("anneau du profil : autour d'une photo ou d'une initiale sur dégradé, pas d'un fond neutre ni d'un service", () => {
+	assert.equal(avecAnneau({ genre: "image" }), true);
+	assert.equal(avecAnneau({ genre: "degrade" }), true);
+	assert.equal(avecAnneau({ genre: "neutre" }), false);
+	assert.equal(avecAnneau({ genre: "service" }), false);
 });
 
 test("vocabulaire : plus de libellés anglais ni de rangs disparus, jamais « membre » ni « IRC » affiché", () => {
@@ -273,7 +270,9 @@ test("fiche rendue : avatar 64, nom, @pseudo, insigne du rôle, rang, lien relat
 	let txt = tout.map((n) => (typeof n.props?.children === "string" ? n.props.children : "")).join("|");
 	assert.ok(tout.some((n) => n.type === "img" && n.props.src === "/uploads/avatars/k.webp" && n.props.width === 64));
 	assert.equal(texte(tout.find((n) => classe(n) === "fiche-nom")), "Kahen L.");
-	assert.equal(texte(tout.find((n) => classe(n) === "fiche-pseudo")), "@Kahen");
+	let pseudo = tout.find((n) => classe(n).startsWith("fiche-pseudo"));
+	assert.equal(texte(pseudo), "@Kahen");
+	assert.equal(classe(pseudo), "fiche-pseudo handle-grad", "le dégradé du profil du site");
 	let role = tout.find((n) => classe(n) === "fiche-role");
 	assert.equal(texte(role), "Modérateur");
 	assert.equal(role.props.style, "color:#6ee7b7");
@@ -285,7 +284,20 @@ test("fiche rendue : avatar 64, nom, @pseudo, insigne du rôle, rang, lien relat
 	assert.ok(traces.some((n) => n.type === "circle" && n.props.stroke === "url(#asRingGrad)"), "l'anneau");
 	assert.equal(traces.filter((n) => n.type === "line" && n.props["stroke-width"] === "3.36").length, 4, "la mire du modérateur");
 	assert.ok(!traces.some((n) => n.props.href || n.props["xlink:href"]), "aucune ressource externe");
-	assert.equal(texte(tout.find((n) => classe(n) === "fiche-rang")), "modère le salon");
+	assert.doesNotMatch(texte(tout), /gère le salon|modère le salon|a la parole/, "plus de bulle du rang");
+	for (let rang of ["@", "%", "+"]) {
+		let sansRole = rendre({ targetMembership: rang, etat: { fiche: { ...PROFIL, role: null } } });
+		assert.doesNotMatch(texte(sansRole), /gère le salon|modère le salon|a la parole/, "ni avec un rôle, ni sans : " + rang);
+	}
+	assert.doesNotMatch(texte(tout), /en vacances/, "plus de statut du profil");
+	assert.ok(!tout.some((n) => classe(n) === "fiche-sous-note"));
+	// L'anneau autour de l'avatar de 64 px, l'avatar dedans
+	let aura = tout.find((n) => classe(n) === "av-aura");
+	assert.ok(aura, "l'anneau du profil");
+	assert.ok([...noeuds(aura.props.children)].some((n) => n.type === "img" && n.props.width === 64));
+	for (let card of [{ kind: "indisponible", pseudo: "Kahen" }, { kind: "bloque_par_moi", pseudo: "Kahen" }, { kind: "service", pseudo: "Kahen", libelle: "x" }]) {
+		assert.ok(!rendre({ etat: { fiche: card } }).some((n) => classe(n) === "av-aura"), card.kind);
+	}
 	let lien = tout.find((n) => n.type === "a");
 	assert.equal(lien.props.href, "/u/Kahen");
 	assert.equal(lien.props.target, "_blank");
@@ -307,7 +319,7 @@ test("fiche rendue : avatar 64, nom, @pseudo, insigne du rôle, rang, lien relat
 const WHOIS = {
 	311: { params: ["Moi", "Kahen", "kahen", "vhost.aurasync.fr", "*", "Kahen"] },
 	// #abus et #addictions : si le serveur les rend (a un oper, a qui y est), on les montre
-	319: { params: ["Moi", "Kahen", "%#jeux #AuraSync @#bretagne +#aide !#abus #addictions"] },
+	319: { params: ["Moi", "Kahen", "%#jeux #AuraSync @#bretagne +#aide ?#abus #addictions"] },
 	317: { params: ["Moi", "Kahen", "380", String(Date.UTC(2026, 10, 6, 19, 12) / 1000)] },
 };
 const lignes = (tout) => tout.filter((n) => classe(n) === "whois-row").map((n) => texte(n));
@@ -318,17 +330,20 @@ test("WHOIS : visible de tous, sans repli, sous la modération ; masque, tous le
 		let section = tout.find((n) => classe(n) === "fiche-whois");
 		assert.ok(section, "visible hors équipe comme pour l'équipe");
 		assert.ok(!tout.some((n) => n.type === "details"), "aucun repli");
-		assert.equal(texte(tout.filter((n) => classe(n) === "nick-menu-title").pop()), "SUR LE T'CHAT");
+		assert.doesNotMatch(texte(section), /Sur le t'Chat|SUR LE T'CHAT/i, "plus de titre");
+		let enfants = [...noeuds(section.props.children)].filter((n) => n && n.props && classe(n));
+		assert.equal(classe(enfants[0]), "nick-menu-sep");
+		assert.equal(classe(enfants[1]), "whois-row", "les lignes suivent directement le trait");
 		let l = lignes(tout);
 		assert.equal(l[0], "Masquekahen@vhost.aurasync.fr");
 		assert.ok(!l.some((x) => x.startsWith("Adresse réelle")), "pas d'adresse réelle si le serveur ne l'envoie pas");
 		let salons = tout.find((n) => classe(n) === "whois-chans").props.children.map(texte);
-		assert.deepEqual(salons, ["%#jeux", "#AuraSync", "@#bretagne", "+#aide", "!#abus", "#addictions"], "tous, tels quels, sans filtre");
+		assert.deepEqual(salons, ["%#jeux", "#AuraSync", "@#bretagne", "+#aide", "?#abus", "#addictions"], "tous, tels quels, sans filtre");
 		assert.ok(l.includes("Inactivité6 min"));
 		assert.ok(l.some((x) => x.startsWith("Connexion06/11/2026")));
 		// Ordre : actions, modération, puis WHOIS
 		let i = (pred) => tout.findIndex(pred);
-		assert.ok(i((n) => classe(n) === "fiche-actions") < i((n) => classe(n) === "nick-menu-title"));
+		assert.ok(i((n) => classe(n) === "fiche-actions") < i((n) => texte(n) === "MODÉRATION"));
 		assert.ok(i((n) => texte(n) === "MODÉRATION") < i((n) => classe(n) === "fiche-whois"));
 	}
 });
@@ -375,6 +390,108 @@ test("client : le 378 entre dans la réponse WHOIS au lieu d'aller ailleurs", ()
 	let source = readFileSync(new URL("../lib/client.js", import.meta.url), "utf8");
 	assert.match(source, /case irc\.RPL_WHOISCHANNELS:\n\t\tcase irc\.RPL_WHOISHOST:\n\t\t\tthis\.pushPendingList\("WHOIS "/);
 	assert.equal(irc.RPL_WHOISHOST, "378");
+});
+
+test("salons du WHOIS : boutons au clavier, préfixe affiché mais pas rejoint, la fiche demande le salon", () => {
+	let demandes = [];
+	let tout = rendre({
+		whois: { loading: false, error: false, data: WHOIS },
+		syntaxe: { types: "#", prefixes: "~&@%+" },
+		onSalon: (nom) => demandes.push(nom),
+	});
+	let boutons = tout.filter((n) => classe(n) === "whois-salon");
+	assert.equal(boutons.length, 6);
+	assert.ok(boutons.every((b) => b.type === "button" && b.props.type === "button"), "de vrais boutons : Tab, Entrée, Espace");
+	assert.deepEqual(boutons.map(texte), ["%#jeux", "#AuraSync", "@#bretagne", "+#aide", "?#abus", "#addictions"]);
+	assert.equal(boutons[0].props["aria-label"], "Aller sur #jeux");
+	boutons.forEach((b) => b.props.onClick());
+	assert.deepEqual(demandes, ["#jeux", "#AuraSync", "#bretagne", "#aide", "#abus", "#addictions"]);
+});
+
+test("nom d'un salon du 319 : rang, multi-prefix, « ? » et « ! » d'un oper retirés ; un salon & reste entier", () => {
+	let s = { types: "#", prefixes: "~&@%+" };
+	assert.equal(nomDuSalon("@#jeux", s), "#jeux");
+	assert.equal(nomDuSalon("@+#jeux", s), "#jeux");
+	assert.equal(nomDuSalon("?@#abus", s), "#abus");
+	assert.equal(nomDuSalon("!#aide", s), "#aide");
+	assert.equal(nomDuSalon("&#admin", s), "#admin");
+	assert.equal(nomDuSalon("#jeux", s), "#jeux");
+	assert.equal(nomDuSalon("jeux", s), null);
+	let large = { types: "#&", prefixes: "~&@%+" };
+	assert.equal(nomDuSalon("&local", large), "&local");
+	assert.equal(nomDuSalon("@&local", large), "&local");
+	assert.equal(nomDuSalon("#jeux", null), "#jeux", "sans syntaxe : celle d'UnrealIRCd");
+});
+
+test("rôle réseau (313) : textes d'UnrealIRCd 6.2.7 traduits, repli français pour un texte inconnu", () => {
+	assert.deepEqual(roleReseau("is an IRC Operator"), { libelle: "Opérateur du réseau", connu: true });
+	assert.deepEqual(roleReseau("is an IRC Operator (Jeff) [netadmin]"), { libelle: "Administrateur du réseau", connu: true });
+	assert.deepEqual(roleReseau("is an IRC Operator (Jeff) [netadmin-with-override]"), { libelle: "Administrateur du réseau", connu: true });
+	assert.equal(roleReseau("is an IRC Operator (a) [admin]").libelle, "Administrateur du serveur");
+	assert.equal(roleReseau("is an IRC Operator (a) [services-admin]").libelle, "Administrateur des services");
+	assert.equal(roleReseau("is an IRC Operator (a) [globop]").libelle, "Opérateur du réseau");
+	assert.equal(roleReseau("is an IRC Operator (a) [locop]").libelle, "Opérateur du serveur");
+	assert.equal(roleReseau("is an IRC Operator (a)").libelle, "Opérateur du réseau");
+	assert.equal(roleReseau("is an IRC Operator (a) [maison]").libelle, "Opérateur du réseau", "classe maison : toujours un oper");
+	assert.deepEqual(roleReseau("is a Network Service"), { libelle: "Service du t'Chat", connu: true });
+	for (let inconnu of ["is a Network Administrator", "is a Services Operator", "", undefined]) {
+		assert.deepEqual(roleReseau(inconnu), { libelle: ROLE_INCONNU, connu: false });
+	}
+	assert.doesNotMatch(ROLE_INCONNU, /IRC|[A-Za-z]+ Operator/);
+});
+
+test("rôle réseau : une ligne seulement si le serveur envoie le 313, sans le login, sans doublon de l'insigne", () => {
+	let sans = lignes(rendre({ whois: { loading: false, error: false, data: WHOIS } }));
+	assert.ok(!sans.some((x) => x.startsWith("Rôle réseau")));
+	let data = { ...WHOIS, 313: { params: ["Moi", "Kahen", "is an IRC Operator (kahen-login) [netadmin]"] } };
+	let tout = rendre({ whois: { loading: false, error: false, data } });
+	let l = lignes(tout);
+	assert.ok(l.includes("Rôle réseauAdministrateur du réseau"));
+	assert.doesNotMatch(texte(tout), /kahen-login|netadmin|IRC Operator/);
+	assert.equal(tout.filter((n) => classe(n) === "fiche-role").length, 1, "l'insigne du site reste seul");
+});
+
+test("App : un salon du WHOIS rejoint comme /join, ou s'ouvre si j'y suis ; la fiche se ferme", () => {
+	let gestes = [];
+	let app = {
+		state: {
+			nickMenu: { nick: "Kahen" }, activeBuffer: 1, servers: new Map(),
+			buffers: new Map([[1, { id: 1, server: 1, name: "#jeux", type: BufferType.CHANNEL, joined: true }],
+				[2, { id: 2, server: 1, name: "#aide", type: BufferType.CHANNEL, joined: true }],
+				[3, { id: 3, server: 1, name: "#musique", type: BufferType.CHANNEL, joined: false }]]),
+		},
+		closeNickMenu() {
+			gestes.push("fermer");
+			this.state.nickMenu = null;
+		},
+		switchBuffer: (id) => gestes.push("ouvrir " + id),
+		rejoindre: (nom, server) => gestes.push("rejoindre " + nom + " " + server),
+	};
+	App.prototype.allerSurSalon.call(app, "#aide");
+	App.prototype.allerSurSalon.call(app, "#addictions");
+	App.prototype.allerSurSalon.call(app, "#musique");
+	assert.deepEqual(gestes, ["fermer", "ouvrir 2", "fermer", "rejoindre #addictions 1", "fermer", "rejoindre #musique 1"]);
+	// rejoindre est le geste de /join (D-065) : la sélection suit, et
+	// selection.ajouter ignore un salon jamais retenu (test/selection.test.js)
+	let source = readFileSync(new URL("../components/app.js", import.meta.url), "utf8");
+	assert.match(source, /rejoindre\(target, serverID, password\) \{\n\t\tlet promesse = this\.open\(target, serverID, password\);\n\t\tif \(promesse\) \{\n\t\t\tpromesse\.then\(\(ok\) => \{\n\t\t\t\tif \(ok\) \{\n\t\t\t\t\tthis\.selection\.ajouter\(target\);/);
+});
+
+test("App : un 313 inconnu part dans la console (D-056), la fiche montre le repli", async () => {
+	let { app } = appMinimal({ equipe: false });
+	app.clients.get(1).whois = () => Promise.resolve({ 313: { params: ["", "Kahen", "is a Network Administrator"] } });
+	let erreurs = [];
+	let avant = console.error;
+	console.error = (...a) => erreurs.push(a.join(" "));
+	try {
+		app.chargerWhois("Kahen");
+		await new Promise((r) => setTimeout(r, 0));
+	} finally {
+		console.error = avant;
+	}
+	assert.equal(erreurs.length, 1);
+	assert.match(erreurs[0], /313.*is a Network Administrator/);
+	assert.equal(app.state.whois.loading, false);
 });
 
 test("modération (D-060) : la voix, et le statut opérateur", () => {

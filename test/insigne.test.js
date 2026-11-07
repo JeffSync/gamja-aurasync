@@ -114,3 +114,60 @@ test("insigne : rôle inconnu ou « user » sans insigne ; traits du modérateur
 		assert.doesNotMatch(l, /\(|rice/);
 	}
 });
+
+/* ── Seconde retouche du 7 novembre : anneau de l'avatar et @pseudo ──── */
+
+const THEME = readFileSync(new URL("../aurasync-theme.css", import.meta.url), "utf8");
+
+/* Les declarations d'une regle CSS, valeurs normalisees (var(--color-x) du site resolues). */
+function declarations(css, selecteur, couleurs = {}) {
+	let i = css.indexOf("\n" + selecteur + " {");
+	assert.ok(i >= 0, "règle introuvable : " + selecteur);
+	let corps = css.slice(css.indexOf("{", i) + 1, css.indexOf("}", i)).replace(/\/\*[\s\S]*?\*\//g, "");
+	let d = {};
+	for (let decl of corps.split(";")) {
+		let k = decl.indexOf(":");
+		if (k < 0) {
+			continue;
+		}
+		let v = decl.slice(k + 1).trim().replace(/var\((--color-[\w-]+)\)/g, (m, nom) => couleurs[nom] || m).replace(/\s+/g, " ");
+		d[decl.slice(0, k).trim()] = v;
+	}
+	return d;
+}
+
+test("anneau et @pseudo : av-aura et handle-grad du site, à l'identique", { skip: absent }, () => {
+	let site = readFileSync(path.join(WEB, "routes/layout.css"), "utf8");
+	let couleurs = Object.fromEntries([...site.matchAll(/(--color-[\w-]+): (#[0-9a-f]{6});/g)].map((m) => [m[1], m[2]]));
+	for (let sel of [".av-aura", ".av-aura > *", ".av-aura::before", ".av-aura::after", ".handle-grad"]) {
+		let attendu = declarations(site, sel, couleurs);
+		let fork = declarations(THEME, sel);
+		for (let [k, v] of Object.entries(attendu)) {
+			assert.equal(fork[k], v, sel + " { " + k + " }");
+		}
+	}
+	for (let anim of ["av-pulse", "av-spin"]) {
+		let re = new RegExp("@keyframes " + anim + " \\{[^\\n]*\\}");
+		assert.equal(re.exec(THEME)[0], re.exec(site)[0], anim);
+	}
+});
+
+test("anneau : arrêté si le système demande moins d'animations ; hors du flux, il ne pousse rien", () => {
+	assert.match(THEME, /@media \(prefers-reduced-motion: reduce\) \{\n\t\.av-aura::before, \.av-aura::after \{ animation: none; \}\n\}/);
+	for (let sel of [".av-aura::before", ".av-aura::after"]) {
+		let d = declarations(THEME, sel);
+		assert.equal(d.position, "absolute", sel);
+		assert.equal(d["pointer-events"], "none", sel);
+	}
+});
+
+test("débordement : les entrées de la fiche comptent leur rembourrage, les salons reviennent à la ligne", () => {
+	let item = declarations(THEME, ".nick-menu-item");
+	assert.equal(item.width, "100%");
+	assert.equal(item["box-sizing"], "border-box", "sans lui, le lien « Voir le profil » dépasse de 20 px");
+	let val = declarations(THEME, ".fiche-whois .whois-val");
+	assert.equal(val["min-width"], "0");
+	let salon = declarations(THEME, ".whois-chans .whois-salon");
+	assert.equal(salon["max-width"], "100%");
+	assert.equal(salon["overflow-wrap"], "anywhere");
+});

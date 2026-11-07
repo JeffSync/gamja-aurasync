@@ -789,6 +789,7 @@ button:active {
 	display: flex;
 	align-items: center;
 	gap: 9px;
+	box-sizing: border-box; /* le lien « Voir le profil » debordait de 20 px */
 	width: 100%;
 	padding: 7px 10px;
 	border: none;
@@ -1636,22 +1637,22 @@ ul.switcher-list li a.selected {
 	font-size: 13px;
 	overflow-wrap: anywhere;
 }
+/* @pseudo : handle-grad du site (apps/web/src/routes/layout.css), meme
+   degrade que les mentions, cyan-300 vers violet-400 */
+.handle-grad {
+	width: fit-content;
+	max-width: 100%;
+	background: linear-gradient(90deg, #67e8f9, #a78bfa);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
 .fiche-badges {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 6px 10px;
 	margin-top: 6px;
-}
-.fiche-rang {
-	display: inline-flex;
-	align-items: center;
-	padding: 2px 8px;
-	border-radius: 999px;
-	font-size: 11.5px;
-	font-weight: 600;
-	line-height: 1.5;
-	white-space: nowrap;
 }
 /* Insigne du role : celui du profil du site (RoleEmblem.svelte, variante
    ring), teinte emblemTint, avec son libelle simple (roles.ts) */
@@ -1681,12 +1682,6 @@ ul.switcher-list li a.selected {
 	.role-emblem .ring-base {
 		animation: none;
 	}
-}
-/* Rang dans le salon : libelle neutre, sans couleur de role */
-.fiche-rang {
-	box-shadow: inset 0 0 0 1px var(--aura-stroke);
-	color: var(--aura-text-soft);
-	font-weight: 500;
 }
 .fiche-fermer {
 	flex-shrink: 0;
@@ -1720,6 +1715,32 @@ ul.switcher-list li a.selected {
 	margin-top: 4px;
 	padding-top: 5px;
 	border-top: 1px solid var(--aura-stroke);
+}
+
+/* Aura de l'avatar (anneau conique tournant + halo qui respire) : av-aura
+   du site (apps/web/src/routes/layout.css), memes mesures et couleurs.
+   Les deux couches sont en position absolue : l'avatar garde ses 64 px et
+   rien ne bouge autour. */
+.av-aura { position: relative; display: inline-grid; place-items: center; flex-shrink: 0; }
+.av-aura > * { position: relative; z-index: 2; }
+.av-aura::before {
+	content: ""; position: absolute; z-index: 0; inset: -14px; border-radius: 50%;
+	background: radial-gradient(circle, rgb(34 211 238 / .42), rgb(139 92 246 / .16) 55%, transparent 72%);
+	filter: blur(7px); animation: av-pulse 4.5s ease-in-out infinite;
+	pointer-events: none;
+}
+.av-aura::after {
+	content: ""; position: absolute; z-index: 1; inset: -7px; border-radius: 50%;
+	background: conic-gradient(from 0deg, #22d3ee, #8b5cf6, #22d3ee);
+	-webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+	mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+	filter: drop-shadow(0 0 6px rgb(34 211 238 / .5)); animation: av-spin 9s linear infinite;
+	pointer-events: none;
+}
+@keyframes av-pulse { 0%, 100% { opacity: .5; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.06); } }
+@keyframes av-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+	.av-aura::before, .av-aura::after { animation: none; }
 }
 
 /* Avatars : 64 px dans la fiche, 20 px dans la barre */
@@ -1771,6 +1792,39 @@ ul.switcher-list li a.selected {
 }
 .fiche-whois .whois-key {
 	width: 96px;
+}
+.fiche-whois .whois-val {
+	flex: 1;
+	min-width: 0;
+}
+/* Salons du WHOIS : des boutons, qui reviennent a la ligne sans deborder */
+.whois-chans .whois-salon {
+	max-width: 100%;
+	margin: 0;
+	padding: 1px 6px;
+	border: none;
+	border-radius: 5px;
+	background: rgba(34, 211, 238, 0.09);
+	color: var(--aura-text-soft);
+	font-family: inherit;
+	font-size: 12px;
+	line-height: inherit;
+	text-align: left;
+	overflow-wrap: anywhere;
+	cursor: pointer;
+}
+.whois-chans .whois-salon:hover {
+	background: rgba(34, 211, 238, 0.18);
+	color: var(--aura-text);
+	transform: none;
+}
+.whois-chans .whois-salon:focus-visible {
+	outline: 2px solid var(--aura-cyan);
+	outline-offset: 1px;
+}
+.whois-chans span {
+	max-width: 100%;
+	overflow-wrap: anywhere;
 }
 
 /* Mobile : feuille du bas, au-dessus des tiroirs */
