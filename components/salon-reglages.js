@@ -11,8 +11,9 @@
  */
 
 import { html, Component } from "../lib/index.js";
+import SalonListes from "./salon-listes.js";
 import {
-	EQUIPE, LECTURE, POUR_BANNIR, RESERVE_OP, dateCreation, etatSujet, lignesReglages,
+	EQUIPE, LECTURE, RESERVE_OP, dateCreation, etatSujet, lignesReglages,
 } from "../lib/salon-reglages.js";
 
 function Refus(props) {
@@ -222,9 +223,21 @@ export default class SalonReglages extends Component {
 					${reglages}
 				</section>
 
+				${lu ? html`
+					<${SalonListes}
+						listes=${this.props.listes}
+						rang=${rang}
+						modes=${modes}
+						maxList=${this.props.maxList}
+						envois=${envois}
+						refus=${refus}
+						onRetirer=${this.props.onRetirer}
+						onAjouter=${this.props.onAjouter}
+					/>
+				` : null}
+
 				${autres}
 
-				<p class="reglages-renvoi">${POUR_BANNIR}</p>
 				${creationTexte ? html`<p class="reglages-pied">${creationTexte}</p>` : null}
 			</div>
 		`;

@@ -113,6 +113,11 @@ class FauxClient extends EventTarget {
 	send(msg) {
 		this.envoyes.push(msg);
 	}
+	fetchListe(salon, lettre) {
+		this.listesLues = (this.listesLues || []).concat(lettre);
+		let r = this.listes && this.listes[lettre];
+		return r instanceof Promise ? r : Promise.resolve(r || []);
+	}
 	sendLabeled(msg, labels) {
 		let label = String(this.suivis.length + 1);
 		if (labels) {
@@ -668,10 +673,11 @@ test("menu : en-tête selon le rang, ordre des rubriques, renvoi vers la fiche, 
 	let t = texte(deplier(new SalonReglages(rendreProps(app)).render()));
 	assert.ok(t.includes("Réglages de #jeux"));
 	assert.ok(t.includes("Tu gères ce salon (@)"));
-	let ordre = ["Sujet", "Réglages\n", "Autres réglages actifs", POUR_BANNIR, "Salon créé le 1er mars 2026"].map((x) => t.indexOf(x));
+	let ordre = ["Sujet", "Réglages\n", "Bannissements", POUR_BANNIR, "Personnes muettes", "Autres réglages actifs", "Salon créé le 1er mars 2026"].map((x) => t.indexOf(x));
 	assert.ok(ordre.every((i, k) => i >= 0 && (k === 0 || i > ordre[k - 1])), JSON.stringify(ordre) + "\n" + t);
 	assert.ok(t.includes(EQUIPE));
-	assert.doesNotMatch(t, /\bIRC\b|membre|Bannissements|Exemptions/i, "ni IRC, ni membre, ni listes (lot C)");
+	assert.doesNotMatch(t, /\bIRC\b|membre/i, "ni IRC, ni membre");
+	assert.ok(t.includes("Exemptions"), "lot C : un @ a la rubrique des exemptions");
 
 	maj({ members: new irc.CaseMapMap([["Jeff", "%"]], cm) });
 	t = texte(deplier(new SalonReglages(rendreProps(app)).render()));

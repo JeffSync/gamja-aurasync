@@ -6,10 +6,11 @@ import { BufferType, ServerStatus, getMessageURL, isMessageBeforeReceipt, Settin
 import * as store from "../store.js";
 import Membership from "./membership.js";
 import { pseudoMuet } from "../lib/mutisme.js";
-import { analyseKick, translateError, translateServerNotice, translateServerMode } from "../lib/irc-errors.js";
+import { analyseKick, MOTIF_NON_PRECISE, translateError, translateServerNotice, translateServerMode } from "../lib/irc-errors.js";
 import { estServeur, nomServeur } from "../lib/serveur.js";
 import { motifDepart } from "../lib/evenements.js";
-import { cibleBan, expulsesAvant, libelleMasque, verbeBan } from "../lib/ban.js";
+import { cibleBan, expulsesAvant, kickDuBan, libelleMasque, verbeBan } from "../lib/ban.js";
+import { libelleDuree, minutesBan } from "../lib/listes.js";
 import { assembler, fragmentReglage, phraseRang, REGLAGE_INCONNU } from "../lib/reglages.js";
 import { avantHistorique, SEPARATEUR_HISTORIQUE } from "../lib/historique.js";
 import { segmentsMarques } from "../lib/pour-toi.js";
@@ -161,7 +162,21 @@ function ligneMode(msg, buf, server, createNick) {
 				personne: (pseudo) => server.users.get(pseudo),
 			});
 			let verbe = verbeBan(add ? "+" : "-", cible).replace(/^a /, "");
-			morceaux.push(cible ? html`${verbe} ${createNick(cible, false)}` : verbe);
+			// Lot C : la duree d'un ~time:N:, et le motif du KICK qui
+			// precede (« a banni Kahen pendant 1 heure : insultes »)
+			let suite = "";
+			let minutes = minutesBan(arg);
+			if (add && minutes !== null) {
+				suite += " pendant " + libelleDuree(minutes);
+			}
+			let kick = add && cible && index >= 0 ? kickDuBan(buf.messages, index, msg.prefix.name, cible, server.cm) : null;
+			if (kick) {
+				let raison = analyseKick(kick.params[2], kick.prefix.name).raison;
+				if (raison !== MOTIF_NON_PRECISE) {
+					suite += " : " + raison;
+				}
+			}
+			morceaux.push(cible ? html`${verbe} ${createNick(cible, false)}${suite}` : verbe + suite);
 			continue;
 		}
 		if ((mode === "e" || mode === "I") && arg) {

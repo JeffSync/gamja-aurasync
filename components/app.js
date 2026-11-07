@@ -27,6 +27,7 @@ import {
 	DELAI_REBOND, PLUS_DE_RANG, REBOND_STATUT, REBOND_SUJET, envoiMode, guetter, horsCatalogue,
 	issueEnvoi, octets, rangSalon, rebondStatut, rebondSujet, sujetAEnvoyer, verrousSalon,
 } from "../lib/salon-reglages.js";
+import { appliquerListe, commandeAjout, commandesRetrait, lireEntree, listesALire } from "../lib/listes.js";
 import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal, refusReglageReserve } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
@@ -324,6 +325,8 @@ export default class App extends Component {
 		this.handleNickClick = this.handleNickClick.bind(this);
 		this.handleNickMenuAction = this.handleNickMenuAction.bind(this);
 		this.toggleReglages = this.toggleReglages.bind(this);
+		this.retirerEntree = this.retirerEntree.bind(this);
+		this.ajouterEntree = this.ajouterEntree.bind(this);
 		this.fermerReglages = this.fermerReglages.bind(this);
 		this.basculerReglage = this.basculerReglage.bind(this);
 		this.envoyerSujet = this.envoyerSujet.bind(this);
@@ -1320,10 +1323,6 @@ export default class App extends Component {
 				return [SERVER_BUFFER];
 			}
 			return [channel];
-		case irc.RPL_INVITELIST:
-		case irc.RPL_ENDOFINVITELIST:
-		case irc.RPL_EXCEPTLIST:
-		case irc.RPL_ENDOFEXCEPTLIST:
 		case irc.RPL_QUIETLIST:
 		case irc.RPL_ENDOFQUIETLIST:
 			channel = msg.params[1];
@@ -1368,8 +1367,12 @@ export default class App extends Component {
 		case "BOUNCER":
 		case "MARKREAD":
 		case "REDACT":
-		case irc.RPL_BANLIST: // lue par fetchBanList (menu pseudo), masques bruts (D-056)
+		case irc.RPL_BANLIST: // listes lues par fetchListe, masques bruts (D-056)
 		case irc.RPL_ENDOFBANLIST:
+		case irc.RPL_EXCEPTLIST: // D-068, lot C : jamais dans le fil
+		case irc.RPL_ENDOFEXCEPTLIST:
+		case irc.RPL_INVITELIST:
+		case irc.RPL_ENDOFINVITELIST:
 			// Ignore these
 			return [];
 		default:
@@ -1395,6 +1398,12 @@ export default class App extends Component {
 		switch (msg.command) {
 		case irc.RPL_WELCOME:
 			this.fetchBacklog(serverID);
+			break;
+		case "MODE":
+			// D-068, lot C : les listes du menu ouvert suivent les MODE recus
+			if (client.isChannel(msg.params[0])) {
+				this.suivreListes(serverID, client, msg);
+			}
 			break;
 		case irc.RPL_CHANNELMODEIS:
 			// D-068 : le menu attendait l'etat du salon
@@ -2044,7 +2053,9 @@ export default class App extends Component {
 		if (!client || !buf.members || !rangSalon(buf.members.get(client.nick))) {
 			return;
 		}
-		this.setState({ reglages: { server: buf.server, name: buf.name, lu: false, envois: {}, refus: {}, noteSujet: null } });
+		// listes : lettre -> null (en lecture), [entrees] ou « erreur » ; une
+		// lettre absente n'a pas encore ete demandee (lot C)
+		this.setState({ reglages: { server: buf.server, name: buf.name, lu: false, envois: {}, refus: {}, noteSujet: null, listes: {} } });
 		// Lecture a l'ouverture : 324 (modes) et 329 (creation), lus par
 		// state.js ; le menu attend le 324
 		try {
@@ -2221,12 +2232,17 @@ export default class App extends Component {
 		}
 	}
 
-	handleMotifSubmit(motif) {
+	handleMotifSubmit(motif, duree) {
 		let { action, nick, channel, server } = this.state.dialogData;
 		let client = this.clients.get(server);
 		let buf = State.getBuffer(this.state, { server, name: channel });
 		let cible = buf && buf.members ? buf.members.get(nick) : undefined;
-		let msgs = commandesSanction(action, channel, nick, motif, cible);
+		// D-068 : le ban vise le compte ; a defaut de le connaitre, le pseudo,
+		// qui est celui du compte (D-033)
+		let srv = this.state.servers.get(server);
+		let personne = srv && srv.users ? srv.users.get(nick) : null;
+		let compte = personne && personne.account ? personne.account : nick;
+		let msgs = commandesSanction(action, channel, nick, motif, cible, { duree, compte });
 		if (!client || !msgs) {
 			return;
 		}
@@ -2971,7 +2987,132 @@ export default class App extends Component {
 		if (!this.contexteReglages()) {
 			this.setState({ reglages: null });
 			this.showError(PLUS_DE_RANG);
+			return;
 		}
+		this.lireListes();
+	}
+
+	/*
+	 * D-068, lot C : les listes du menu, lues une fois a l'ouverture. b
+	 * toujours, e pour un @, I si le salon est +i (connu une fois le 324
+	 * arrive). Ensuite, les MODE recus les tiennent a jour.
+	 */
+	lireListes() {
+		let ctx = this.contexteReglages();
+		let r = this.state.reglages;
+		if (!ctx || !r.listes) {
+			return;
+		}
+		let { buf, client, rang } = ctx;
+		let { server, name } = buf;
+		for (let lettre of listesALire(rang, r.lu ? buf.modes : {})) {
+			if (lettre in r.listes) {
+				continue;
+			}
+			// Note tout de suite : un second appel avant le setState ne relance pas
+			r.listes = { ...r.listes, [lettre]: null };
+			this.majReglages(server, name, (x) => ({ listes: { ...x.listes, [lettre]: null } }));
+			client.fetchListe(name, lettre).then((reponses) => {
+				let entrees = reponses.map(lireEntree);
+				this.majReglages(server, name, (x) => ({ listes: { ...x.listes, [lettre]: entrees } }));
+			}, () => {
+				this.majReglages(server, name, (x) => ({ listes: { ...x.listes, [lettre]: "erreur" } }));
+			});
+		}
+	}
+
+	/* Un MODE recu sur le salon du menu : ajouts et retraits dans les listes. */
+	suivreListes(serverID, client, msg) {
+		let r = this.state.reglages;
+		if (!r || !r.listes || r.server !== serverID || client.cm(r.name) !== client.cm(msg.params[0])) {
+			return;
+		}
+		let changements = [];
+		irc.forEachChannelModeUpdate(msg, client.isupport, (mode, add, arg) => {
+			if (["b", "e", "I"].includes(mode) && arg) {
+				changements.push({ mode, add, arg });
+			}
+		});
+		if (!changements.length) {
+			return;
+		}
+		let date = Math.floor(Date.now() / 1000);
+		let auteur = msg.prefix ? msg.prefix.name : null;
+		this.majReglages(serverID, r.name, (x) => {
+			let listes = { ...x.listes };
+			for (let c of changements) {
+				listes[c.mode] = appliquerListe(listes[c.mode], c.add, c.arg, auteur, date);
+			}
+			return { listes };
+		});
+	}
+
+	/*
+	 * Retirer une entree : le masque exact recu, par un MODE suivi ; la ligne
+	 * ne disparait qu'a l'echo. Un mutisme leve previent la personne (D-059),
+	 * apres l'echo. Les exemptions sont au @ seulement.
+	 */
+	retirerEntree(lettre, masque) {
+		let ctx = this.contexteReglages();
+		if (!ctx || !["b", "e", "I"].includes(lettre) || (lettre === "e" && ctx.rang !== "@")) {
+			return;
+		}
+		let { buf, client } = ctx;
+		let liste = this.state.reglages.listes[lettre];
+		let cle = "liste:" + lettre + ":" + masque;
+		if (!Array.isArray(liste) || !liste.some((e) => e.masque === masque) || this.state.reglages.envois[cle]) {
+			return;
+		}
+		let { mode, notice } = commandesRetrait(buf.name, lettre, masque);
+		this.envoyerSuivi(ctx, cle, mode, (issue) => {
+			if (issue.echo && notice) {
+				client.send(notice);
+			}
+		});
+	}
+
+	/* Exempter (@) ou inviter en permanence (salon +i) un compte. */
+	ajouterEntree(lettre, pseudo) {
+		let ctx = this.contexteReglages();
+		if (!ctx) {
+			return;
+		}
+		let { buf, rang } = ctx;
+		if ((lettre === "e" && rang !== "@") || (lettre === "I" && !("i" in buf.modes))) {
+			return;
+		}
+		let msg = commandeAjout(buf.name, lettre, pseudo);
+		let cle = "ajout:" + lettre;
+		if (!msg || this.state.reglages.envois[cle]) {
+			return;
+		}
+		this.envoyerSuivi(ctx, cle, msg);
+	}
+
+	/* Envoi suivi d'une ligne du menu : en cours, puis refus ou rien. */
+	envoyerSuivi(ctx, cle, msg, apres = () => {}) {
+		let { buf, client } = ctx;
+		let { server, name } = buf;
+		this.majReglages(server, name, (r) => ({
+			envois: { ...r.envois, [cle]: true },
+			refus: { ...r.refus, [cle]: null },
+		}));
+		let fin = (issue) => this.majReglages(server, name, (r) => ({
+			envois: { ...r.envois, [cle]: false },
+			refus: { ...r.refus, [cle]: issue.refus || null },
+		}));
+		let envoi;
+		try {
+			envoi = client.sendLabeled(msg, this.labelsReglages);
+		} catch (err) {
+			fin({ refus: displayError(err) });
+			return;
+		}
+		envoi.then((resultat) => {
+			let issue = issueEnvoi(resultat);
+			fin(issue);
+			apres(issue);
+		});
 	}
 
 	componentWillUnmount() {
@@ -3312,6 +3453,10 @@ export default class App extends Component {
 					envois=${r.envois}
 					refus=${r.refus}
 					noteSujet=${r.noteSujet}
+					listes=${r.listes}
+					maxList=${{ b: client.isupport.maxList("b"), e: client.isupport.maxList("e"), I: client.isupport.maxList("I") }}
+					onRetirer=${this.retirerEntree}
+					onAjouter=${this.ajouterEntree}
 					onBasculer=${this.basculerReglage}
 					onSujet=${this.envoyerSujet}
 					onClose=${this.fermerReglages}

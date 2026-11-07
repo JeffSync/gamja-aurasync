@@ -174,7 +174,8 @@ test("ligne de ban d'AuraBot : la personne expulsée juste avant, jamais le masq
 	recoit({ command: "MODE", prefix: AURABOT, params: ["#jeux", "-b", "*!*@" + HOTE] });
 	let l = lignes();
 	assert.ok(l.some((x) => /Kahen a été expulsé\(e\) par AuraBot \(trop de messages en peu de temps\)/.test(x)), l.join("\n"));
-	assert.ok(l.some((x) => /AuraBot a banni Kahen$/.test(x)), l.join("\n"));
+	// Lot C : la ligne du ban reprend le motif du KICK qui la precede
+	assert.ok(l.some((x) => /AuraBot a banni Kahen : trop de messages en peu de temps$/.test(x)), l.join("\n"));
 	assert.ok(l.some((x) => /AuraBot a levé le ban de Kahen$/.test(x)), l.join("\n"));
 	assert.ok(!l.some((x) => x.includes(HOTE) || x.includes("*!*@")), "aucun masque à l'écran");
 });

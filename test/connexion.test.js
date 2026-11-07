@@ -89,10 +89,19 @@ test("sanction : le motif part dans le KICK", () => {
 	assert.deepEqual(commandesSanction("kick", "#aide", "Kahen", " spam répété "), [
 		{ command: "KICK", params: ["#aide", "Kahen", "spam répété"] },
 	]);
+	// D-068, lot C : le KICK d'abord (la ligne du ban en reprend le motif),
+	// puis le ban du compte, 1 heure par defaut
 	assert.deepEqual(commandesSanction("ban", "#aide", "Kahen", "insultes"), [
-		{ command: "MODE", params: ["#aide", "+b", "Kahen!*@*"] },
 		{ command: "KICK", params: ["#aide", "Kahen", "insultes"] },
+		{ command: "MODE", params: ["#aide", "+b", "~time:60:~account:Kahen"] },
 	]);
+	for (let [duree, masque] of [["1h", "~time:60:~account:Kahen2"], ["24h", "~time:1440:~account:Kahen2"],
+		["7j", "~time:10080:~account:Kahen2"], ["sans-fin", "~account:Kahen2"]]) {
+		let msgs = commandesSanction("ban", "#aide", "Kahen", "insultes", "", { duree, compte: "Kahen2" });
+		assert.deepEqual(msgs[1], { command: "MODE", params: ["#aide", "+b", masque] }, duree);
+		assert.deepEqual(msgs[0], { command: "KICK", params: ["#aide", "Kahen", "insultes"] }, "le KICK vise le pseudo");
+	}
+	assert.equal(commandesSanction("ban", "#aide", "Kahen", "insultes", "", { duree: "3j" }), null, "durée inconnue : rien ne part");
 	assert.equal(commandesSanction("voice", "#aide", "Kahen", "x"), null);
 });
 
