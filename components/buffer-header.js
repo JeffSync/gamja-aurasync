@@ -193,6 +193,30 @@ export default function BufferHeader(props) {
 		</button>
 	`;
 
+	// D-068 : le menu « Réglages », pour % et @ du salon seulement (le +
+	// et un oper sans rang n'ont rien). app.js passe `rang` d'apres la place
+	// de la personne dans buf.members.
+	let reglagesToggle = null;
+	if (props.buffer.type === BufferType.CHANNEL && props.rang) {
+		reglagesToggle = html`
+			<button
+				class="hdr-reglages ${props.reglagesOuverts ? "ouvert" : ""}"
+				type="button"
+				onClick=${props.onToggleReglages}
+				aria-label="Réglages du salon"
+				aria-expanded=${props.reglagesOuverts ? "true" : "false"}
+				title="Réglages du salon"
+			>
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+					stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<path d="M4 7h9"/><path d="M17 7h3"/><path d="M15 9.2a2.2 2.2 0 100-4.4 2.2 2.2 0 000 4.4z"/>
+					<path d="M4 17h3"/><path d="M11 17h9"/><path d="M9 19.2a2.2 2.2 0 100-4.4 2.2 2.2 0 000 4.4z"/>
+				</svg>
+				<span class="hdr-reglages-texte">Réglages</span>
+			</button>
+		`;
+	}
+
 	let memberToggle = null;
 	if (props.buffer.type === BufferType.CHANNEL && props.memberCount !== undefined) {
 		memberToggle = html`
@@ -219,6 +243,7 @@ export default function BufferHeader(props) {
 		${drawerToggles}
 		<div class="title">${name}</div>
 		${description ? html`<div class="description">${description}</div>` : null}
+		${reglagesToggle}
 		${memberToggle}
 		<div class="actions">${actions}</div>
 	`;

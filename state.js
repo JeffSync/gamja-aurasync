@@ -396,6 +396,7 @@ export const State = {
 			topic: null, // if channel
 			modes: {}, // if channel : { lettre: valeur }, 324 et MODE (D-068)
 			verrous: "", // if channel : lettres verrouillees annoncees par un 742, pour la session
+			creation: null, // if channel : date de creation (329), en secondes
 			hasInitialWho: false, // if channel
 			members: new irc.CaseMapMap(null, client.cm), // if channel
 			messages: [],
@@ -728,6 +729,12 @@ export const State = {
 					modes = appliquerMode(modes, mode, add, arg, type);
 				});
 				return { modes };
+			});
+		case irc.RPL_CREATIONTIME:
+			// D-068 : pied du menu « Réglages », « Salon créé le … »
+			channel = msg.params[1];
+			return updateBuffer(channel, () => {
+				return { creation: Number(msg.params[2]) || null };
 			});
 		case irc.ERR_MLOCKRESTRICTED:
 			// D-068 : le serveur annonce les lettres verrouillees par SalonSync

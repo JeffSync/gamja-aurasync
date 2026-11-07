@@ -153,7 +153,13 @@ test("lireCatalogue : catégories, salons par clé, rang, sélection", () => {
 	}
 	assert.deepEqual(lireCatalogue({ categories: [], selection: ["#aide", 3, null] }).selection, ["#aide"]);
 	let sansDrapeaux = lireCatalogue({ categories: [{ id: "a", label: "A", channels: [{ name: "#x" }] }], selection: [] });
-	assert.deepEqual(sansDrapeaux.salons.get("#x"), { name: "#x", label: "#x", category: "a", rang: 0, fixed: false, remember: true, sensible: false });
+	assert.deepEqual(sansDrapeaux.salons.get("#x"), { name: "#x", label: "#x", category: "a", rang: 0, fixed: false, remember: true, sensible: false, locked: null });
+	// D-068 : les verrous, lettres seules ; null si absents ou mal formes
+	let salonsVerrous = [{ name: "#x", locked: "PntfHiklsDQ" }, { name: "#y", locked: "+n" }, { name: "#z", locked: 3 }];
+	let verrous = lireCatalogue({ categories: [{ id: "a", label: "A", channels: salonsVerrous }], selection: [] });
+	assert.equal(verrous.salons.get("#x").locked, "PntfHiklsDQ");
+	assert.equal(verrous.salons.get("#y").locked, null);
+	assert.equal(verrous.salons.get("#z").locked, null);
 	let texte = lireCatalogue({ categories: [{ id: "a", label: "A", channels: [{ name: "#x", sensible: "oui" }] }], selection: [] });
 	assert.equal(texte.salons.get("#x").sensible, false, "seul le booléen true compte");
 });

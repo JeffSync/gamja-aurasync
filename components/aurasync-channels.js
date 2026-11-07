@@ -179,6 +179,19 @@ export function salonSensible(name) {
 	return Boolean(salon && salon.sensible);
 }
 
+/*
+ * Lettres verrouillees d'un salon selon le catalogue (D-068, point 2), ou
+ * null : salon hors catalogue, catalogue pas encore lu, ou API qui ne sert
+ * pas le champ. Le 742 du serveur complete en direct (buf.verrous).
+ */
+export function verrousCatalogue(name) {
+	if (!catalogue || typeof name !== "string") {
+		return null;
+	}
+	let salon = catalogue.salons.get(cleCatalogue(name));
+	return salon && typeof salon.locked === "string" ? salon.locked : null;
+}
+
 /* Nom technique -> libelle affiche ; le nom sans « # » s'il est inconnu. */
 export function channelLabel(name) {
 	let meta = channelMeta(name);

@@ -22,12 +22,17 @@ import { strip as stripANSI } from "../lib/ansi.js";
 import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEventsDisplayMode, State, getServerName, receiptFromMessage, isReceiptBefore, isMessageBeforeReceipt, SettingsContext, reglagesEffectifs } from "../state.js";
 import commands from "../commands.js";
 import NickMenu from "./nick-menu.js";
+import SalonReglages from "./salon-reglages.js";
+import {
+	DELAI_REBOND, PLUS_DE_RANG, REBOND_STATUT, REBOND_SUJET, envoiMode, guetter, horsCatalogue,
+	issueEnvoi, octets, rangSalon, rebondStatut, rebondSujet, sujetAEnvoyer, verrousSalon,
+} from "../lib/salon-reglages.js";
 import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal, refusReglageReserve } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
 import { configAutojoin, connectAutojoin, takeOneShot, buffersToRestore } from "../lib/autojoin.js";
 import { createSelection } from "../lib/selection.js";
-import { setCatalogue, salonSensible } from "./aurasync-channels.js";
+import { setCatalogue, salonSensible, verrousCatalogue } from "./aurasync-channels.js";
 import { expulsionAuto, cleSalon, noterExpulsion, oublierExpulsion, refusApresExpulsion } from "../lib/sanction-auto.js";
 import { marquerHistorique } from "../lib/historique.js";
 import { commandesSanction, demandeMotif } from "../lib/connexion.js";
@@ -244,6 +249,10 @@ export default class App extends Component {
 		// { card, equipe } (D-066, point 8). La barre y lit les avatars.
 		fiches: new Map(),
 		restreint: false,
+		// Menu « Réglages » ouvert (D-068, lot B) : { server, name, lu,
+		// envois, refus, noteSujet }. `lu` : le 324 demande a l'ouverture
+		// est arrive ; avant, le menu n'invente rien.
+		reglages: null,
 		openPanels: {
 			bufferList: false,
 			memberList: false,
@@ -253,6 +262,9 @@ export default class App extends Component {
 	config = { ...baseConfig };
 	clients = new Map();
 	cacheFiches = creerCacheFiches();
+	// Labels des envois du menu « Réglages » : leurs refus s'affichent dans
+	// le menu, pas en banniere
+	labelsReglages = new Set();
 	endOfHistory = new Map();
 	receipts = new Map();
 	buffer = createRef();
@@ -311,6 +323,10 @@ export default class App extends Component {
 		this.handleChannelClick = this.handleChannelClick.bind(this);
 		this.handleNickClick = this.handleNickClick.bind(this);
 		this.handleNickMenuAction = this.handleNickMenuAction.bind(this);
+		this.toggleReglages = this.toggleReglages.bind(this);
+		this.fermerReglages = this.fermerReglages.bind(this);
+		this.basculerReglage = this.basculerReglage.bind(this);
+		this.envoyerSujet = this.envoyerSujet.bind(this);
 		this.closeNickMenu = this.closeNickMenu.bind(this);
 		this.handlePageHide = this.handlePageHide.bind(this);
 		this.handlePageShow = this.handlePageShow.bind(this);
@@ -1372,11 +1388,30 @@ export default class App extends Component {
 
 		this.setState((state) => State.handleMessage(state, msg, serverID, client));
 
+		// Reponse a un envoi du menu « Réglages » : le refus s'y affiche
+		let duMenu = this.labelsReglages.has(irc.getMessageLabel(msg));
+
 		let target, channel;
 		switch (msg.command) {
 		case irc.RPL_WELCOME:
 			this.fetchBacklog(serverID);
 			break;
+		case irc.RPL_CHANNELMODEIS:
+			// D-068 : le menu attendait l'etat du salon
+			if (this.state.reglages && this.state.reglages.server === serverID
+				&& client.cm(this.state.reglages.name) === client.cm(msg.params[1])) {
+				this.majReglages(serverID, this.state.reglages.name, () => ({ lu: true }));
+			}
+			break;
+		case irc.ERR_MLOCKRESTRICTED: {
+			// D-068 : une lettre verrouillee que le catalogue ignore, le
+			// catalogue est en retard sur un LOCK ADD
+			let manque = horsCatalogue(verrousCatalogue(msg.params[1]), msg.params[3]);
+			if (manque) {
+				console.error(`Verrou de ${msg.params[1]} absent du catalogue de l'API : ${manque}`);
+			}
+			break;
+		}
 		case irc.RPL_ENDOFMOTD:
 		case irc.ERR_NOMOTD:
 			// These messages are used to indicate the end of the ISUPPORT list
@@ -1464,7 +1499,7 @@ export default class App extends Component {
 			}
 			// D-068 : refus de restrict-channelmodes, une NOTICE du serveur qui
 			// partirait dans l'onglet masque.
-			if (client.isMyNick(msg.params[0]) && estServeur(msg.prefix && msg.prefix.name) && refusReglageReserve(msg.params[1])) {
+			if (!duMenu && client.isMyNick(msg.params[0]) && estServeur(msg.prefix && msg.prefix.name) && refusReglageReserve(msg.params[1])) {
 				this.showError(refusReglageReserve(msg.params[1]));
 			}
 			break;
@@ -1593,7 +1628,7 @@ export default class App extends Component {
 		default:
 			// 696, 972 et 974 sont hors de la plage de irc.isError : sans ce
 			// test, le refus partait dans l'onglet serveur masque, en silence.
-			if ((irc.isError(msg.command) && msg.command !== irc.ERR_NOMOTD) || isRefusal(msg.command)) {
+			if (!duMenu && ((irc.isError(msg.command) && msg.command !== irc.ERR_NOMOTD) || isRefusal(msg.command))) {
 				let description = msg.params[msg.params.length - 1];
 				this.showError(this.refusBanAuto(serverID, msg) || translateError(msg.command, description));
 			}
@@ -1974,6 +2009,162 @@ export default class App extends Component {
 		this.setState({ chanList: null });
 	}
 
+	/*
+	 * Le salon du menu « Réglages », le client, le rang de la personne et
+	 * les verrous (catalogue ∪ 742), ou null si le menu est ferme, le salon
+	 * quitte ou le rang perdu.
+	 */
+	contexteReglages(state = this.state) {
+		let r = state.reglages;
+		if (!r) {
+			return null;
+		}
+		let buf = State.getBuffer(state, { server: r.server, name: r.name });
+		let client = this.clients.get(r.server);
+		if (!buf || !client || !buf.members) {
+			return null;
+		}
+		let rang = rangSalon(buf.members.get(client.nick));
+		if (!rang) {
+			return null;
+		}
+		return { buf, client, rang, verrous: verrousSalon(verrousCatalogue(buf.name), buf.verrous) };
+	}
+
+	toggleReglages() {
+		if (this.state.reglages) {
+			this.fermerReglages();
+			return;
+		}
+		let buf = this.state.buffers.get(this.state.activeBuffer);
+		if (!buf || buf.type !== BufferType.CHANNEL) {
+			return;
+		}
+		let client = this.clients.get(buf.server);
+		if (!client || !buf.members || !rangSalon(buf.members.get(client.nick))) {
+			return;
+		}
+		this.setState({ reglages: { server: buf.server, name: buf.name, lu: false, envois: {}, refus: {}, noteSujet: null } });
+		// Lecture a l'ouverture : 324 (modes) et 329 (creation), lus par
+		// state.js ; le menu attend le 324
+		try {
+			client.send({ command: "MODE", params: [buf.name] });
+		} catch (err) {
+			this.showError(err);
+		}
+	}
+
+	fermerReglages() {
+		this.setState({ reglages: null });
+	}
+
+	/* Fusionne `maj(reglages)` dans le menu, s'il est encore ouvert sur ce salon. */
+	majReglages(server, name, maj) {
+		this.setState((state) => {
+			let r = state.reglages;
+			if (!r || r.server !== server || r.name !== name) {
+				return null;
+			}
+			return { reglages: { ...r, ...maj(r) } };
+		});
+	}
+
+	/* Un geste = un MODE suivi ; l'interrupteur suit l'echo (buf.modes). */
+	basculerReglage(lettre) {
+		let ctx = this.contexteReglages();
+		if (!ctx) {
+			return;
+		}
+		let { buf, client, rang, verrous } = ctx;
+		let msg = envoiMode(buf.name, lettre, buf.modes, verrous, rang);
+		if (!msg || this.state.reglages.envois[lettre]) {
+			return;
+		}
+		let { server, name } = buf;
+		this.majReglages(server, name, (r) => ({
+			envois: { ...r.envois, [lettre]: true },
+			refus: { ...r.refus, [lettre]: null },
+		}));
+		let fin = (issue) => this.majReglages(server, name, (r) => ({
+			envois: { ...r.envois, [lettre]: false },
+			refus: { ...r.refus, [lettre]: issue.refus || null },
+		}));
+		let envoi;
+		try {
+			envoi = client.sendLabeled(msg, this.labelsReglages);
+		} catch (err) {
+			fin({ refus: displayError(err) });
+			return;
+		}
+		envoi.then((resultat) => fin(issueEnvoi(resultat)));
+	}
+
+	/*
+	 * TOPIC suivi. Si SalonSync remet le sujet dans les 2 s (KEEPTOPIC, sujet
+	 * regle par l'equipe), le menu le dit.
+	 */
+	envoyerSujet(texte) {
+		let ctx = this.contexteReglages();
+		if (!ctx || this.state.reglages.envois.sujet) {
+			return;
+		}
+		let { buf, client } = ctx;
+		let sujet = sujetAEnvoyer(texte);
+		if (octets(sujet) > client.isupport.topicLen()) {
+			return;
+		}
+		let { server, name } = buf;
+		this.majReglages(server, name, (r) => ({
+			envois: { ...r.envois, sujet: true },
+			refus: { ...r.refus, sujet: null },
+			noteSujet: null,
+		}));
+		let fin = (issue) => this.majReglages(server, name, (r) => ({
+			envois: { ...r.envois, sujet: false },
+			refus: { ...r.refus, sujet: issue.refus || null },
+		}));
+		let envoi;
+		try {
+			envoi = client.sendLabeled({ command: "TOPIC", params: [name, sujet] }, this.labelsReglages);
+		} catch (err) {
+			fin({ refus: displayError(err) });
+			return;
+		}
+		envoi.then((resultat) => {
+			let issue = issueEnvoi(resultat);
+			fin(issue);
+			if (!issue.echo) {
+				return;
+			}
+			guetter(client, (m) => rebondSujet(m, name, client.cm), DELAI_REBOND).then((vu) => {
+				if (vu) {
+					this.majReglages(server, name, () => ({ noteSujet: REBOND_SUJET }));
+				}
+			});
+		});
+	}
+
+	/*
+	 * SECUREOPS : SalonSync retire un statut donne a quelqu'un qui n'est pas
+	 * sur la liste d'acces du salon. Guette pendant 2 s apres l'envoi.
+	 */
+	guetterSecureops(client, salon, nick, lettres) {
+		guetter(client, (m) => {
+			if (m.command !== "MODE") {
+				return false;
+			}
+			let changements = [];
+			irc.forEachChannelModeUpdate(m, client.isupport, (mode, add, arg) => {
+				changements.push({ mode, add, arg });
+			});
+			return rebondStatut(m, changements, salon, nick, lettres, client.cm);
+		}, DELAI_REBOND).then((vu) => {
+			if (vu) {
+				this.showError(REBOND_STATUT);
+			}
+		});
+	}
+
 	handleNickMenuAction(action, nick) {
 		let buf = this.state.buffers.get(this.state.activeBuffer);
 
@@ -2017,6 +2208,7 @@ export default class App extends Component {
 			break;
 		case "op":
 			client.send({ command: "MODE", params: [buf.name, "+o", nick] });
+			this.guetterSecureops(client, buf.name, nick, "oh");
 			break;
 		case "deop":
 			client.send({ command: "MODE", params: [buf.name, "-o", nick] });
@@ -2764,6 +2956,24 @@ export default class App extends Component {
 		}
 	}
 
+	componentDidUpdate() {
+		// D-068 : le menu « Réglages » suit le salon actif, et se ferme a la
+		// perte du rang (deop, depart, expulsion), en le disant
+		let r = this.state.reglages;
+		if (!r) {
+			return;
+		}
+		let actif = this.state.buffers.get(this.state.activeBuffer);
+		if (!actif || actif.server !== r.server || actif.name !== r.name) {
+			this.setState({ reglages: null });
+			return;
+		}
+		if (!this.contexteReglages()) {
+			this.setState({ reglages: null });
+			this.showError(PLUS_DE_RANG);
+		}
+	}
+
 	componentWillUnmount() {
 		document.title = this.baseTitle;
 		window.removeEventListener("focus", this.handleWindowFocus);
@@ -2856,6 +3066,12 @@ export default class App extends Component {
 				activeUser = activeServer.users.get(activeBuffer.name);
 			}
 
+			// D-068 : % ou @ du salon actif, d'apres buf.members
+			let rang = null;
+			if (activeBuffer.type === BufferType.CHANNEL && activeBuffer.members && activeClient) {
+				rang = rangSalon(activeBuffer.members.get(activeClient.nick));
+			}
+
 			bufferHeader = html`
 				<section id="buffer-header" role="banner">
 					<${BufferHeader}
@@ -2866,6 +3082,9 @@ export default class App extends Component {
 						onChannelClick=${this.handleChannelClick}
 						onToggleBufferList=${this.toggleBufferList}
 						onToggleMemberList=${this.toggleMemberList}
+						rang=${rang}
+						reglagesOuverts=${Boolean(this.state.reglages)}
+						onToggleReglages=${this.toggleReglages}
 						pourToi=${totalPourToi(this.state.buffers.values())}
 						memberCount=${activeBuffer && activeBuffer.members ? activeBuffer.members.size : undefined}
 							canPart=${Array.from(this.state.buffers.values()).filter((b) => b.type === BufferType.CHANNEL).length > 1}
@@ -3074,6 +3293,32 @@ export default class App extends Component {
 			`;
 		}
 
+		let reglagesSalon = null;
+		let ctxReglages = this.contexteReglages();
+		if (ctxReglages) {
+			let { buf, client, rang, verrous } = ctxReglages;
+			let r = this.state.reglages;
+			reglagesSalon = html`
+				<${SalonReglages}
+					key=${buf.id}
+					salon=${buf.name}
+					rang=${rang}
+					lu=${r.lu}
+					modes=${buf.modes}
+					verrous=${verrous}
+					sujet=${buf.topic}
+					creation=${buf.creation}
+					topicLen=${client.isupport.topicLen()}
+					envois=${r.envois}
+					refus=${r.refus}
+					noteSujet=${r.noteSujet}
+					onBasculer=${this.basculerReglage}
+					onSujet=${this.envoyerSujet}
+					onClose=${this.fermerReglages}
+				/>
+			`;
+		}
+
 		let chanListPanel = null;
 		if (this.state.chanList) {
 			let joined = new Set();
@@ -3187,6 +3432,7 @@ export default class App extends Component {
 			${dialog}
 			${error}
 			${nickMenu}
+			${reglagesSalon}
 			${chanListPanel}
 		`;
 

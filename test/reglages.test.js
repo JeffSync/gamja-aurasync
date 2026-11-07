@@ -400,6 +400,7 @@ test("NOTICE de restrict-channelmodes et 742 : bannière ou salon, jamais l'angl
 	let app = {
 		state: State.create(),
 		clients: new Map([["s", client]]),
+		labelsReglages: new Set(),
 		routeMessage: () => [],
 		setState() {},
 		salonMutisme: () => null,
