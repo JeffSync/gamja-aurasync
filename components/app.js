@@ -22,7 +22,6 @@ import { strip as stripANSI } from "../lib/ansi.js";
 import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEventsDisplayMode, State, getServerName, receiptFromMessage, isReceiptBefore, isMessageBeforeReceipt, SettingsContext, reglagesEffectifs } from "../state.js";
 import commands from "../commands.js";
 import NickMenu from "./nick-menu.js";
-import { roleReseau } from "./whois-panel.js";
 import ChannelList from "./channel-list.js";
 import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
@@ -1888,13 +1887,7 @@ export default class App extends Component {
 			}
 			return { whois: { ...state.whois, loading: false, ...maj } };
 		});
-		client.whois(nick).then((data) => {
-			// D-056 : un 313 que la fiche ne sait pas traduire part dans la console
-			if (data["313"] && !roleReseau(data["313"].params[2]).connu) {
-				console.error("Rôle réseau non traduit (313) :", data["313"].params[2]);
-			}
-			range({ data });
-		}, () => range({ error: true }));
+		client.whois(nick).then((data) => range({ data }), () => range({ error: true }));
 	}
 
 	/*

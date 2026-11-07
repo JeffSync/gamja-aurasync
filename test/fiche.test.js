@@ -21,13 +21,13 @@ globalThis.window.localStorage = {
 globalThis.localStorage = globalThis.window.localStorage;
 
 const fiche = await import("../lib/fiche.js");
-const { contenuFiche, avatarDe, avecAnneau, creerCacheFiches, dernierRecu, trierPrives, TEXTES, DUREE_CACHE } = fiche;
+const { contenuFiche, avatarDe, avecAnneau, roleReseau, creerCacheFiches, dernierRecu, trierPrives, TEXTES, DUREE_CACHE } = fiche;
 const { BufferType, Unread, ServerStatus } = await import("../state.js");
 const { default: NickMenu } = await import("../components/nick-menu.js");
 const { default: BufferList } = await import("../components/buffer-list.js");
 const { default: App } = await import("../components/app.js");
 const channels = await import("../components/aurasync-channels.js");
-const { lignesWhois, nomDuSalon, roleReseau, ROLE_INCONNU } = await import("../components/whois-panel.js");
+const { lignesWhois, nomDuSalon } = await import("../components/whois-panel.js");
 const { default: Client } = await import("../lib/client.js");
 const irc = await import("../lib/irc.js");
 
@@ -50,7 +50,7 @@ test("cas 1, moi : « Mon profil », et rien d'autre", () => {
 	assert.deepEqual(c.actions, []);
 	assert.equal(c.moderation, false);
 	assert.equal(c.sousNote, null, "le statut du profil n'est plus affiché");
-	assert.equal(c.note, TEXTES.prive);
+	assert.equal(c.note, null, "plus de « Profil privé » (troisième retouche)");
 });
 
 test("cas 2, profil public : avatar, nom, rôle, « Voir le profil », message, mention, modération ; pas de statut", () => {
@@ -69,9 +69,9 @@ test("cas 2, profil public : avatar, nom, rôle, « Voir le profil », message, 
 	assert.equal(cas({ ...PROFIL, displayName: null }).titre, "Kahen");
 });
 
-test("cas 3, profil privé : « Profil privé », sans statut, mêmes actions", () => {
+test("cas 3, profil privé : ni « Profil privé » ni statut, mêmes actions", () => {
 	let c = cas({ ...PROFIL, prive: true, statut: "ne doit pas sortir" });
-	assert.equal(c.note, "Profil privé");
+	assert.equal(c.note, null);
 	assert.equal(c.sousNote, null);
 	assert.deepEqual(c.lien, { texte: "Voir le profil", href: "/u/Kahen" });
 	assert.deepEqual(c.actions, ["query", "mention"]);
@@ -305,7 +305,8 @@ test("fiche rendue : avatar 64, nom, @pseudo, insigne du rôle, rang, lien relat
 	assert.match(texte(tout.find((n) => classe(n) === "fiche-actions")), /Voir le profil.*Message privé.*Mentionner/);
 	assert.ok(!tout.some((n) => n.type === "details"), "plus de repli");
 	assert.doesNotMatch(txt, /Détails techniques/);
-	assert.ok(!tout.some((n) => classe(n) === "fiche-whois"), "pas de section WHOIS sans réponse");
+	assert.ok(!tout.some((n) => classe(n) === "fiche-whois fiche-whois-bas"), "pas de salons sans réponse");
+	assert.deepEqual(lignes(tout), ["Rôle réseauModérateur du réseau"], "sans réponse du serveur, le rôle réseau seul");
 	// Fondateur : la fleur de vie, treize cercles
 	let fondateur = rendre({ etat: { fiche: { ...PROFIL, role: "founder" } } });
 	let fleur = fondateur.filter((n) => n.type === "circle" && n.props.r === "7");
@@ -324,28 +325,41 @@ const WHOIS = {
 };
 const lignes = (tout) => tout.filter((n) => classe(n) === "whois-row").map((n) => texte(n));
 
-test("WHOIS : visible de tous, sans repli, sous la modération ; masque, tous les salons avec leur rang, inactivité, connexion", () => {
+test("WHOIS : visible de tous, sans repli ; masque sous l'en-tête, salons, inactivité et connexion après la modération", () => {
 	for (let equipe of [false, true]) {
 		let tout = rendre({ selfMembership: "@", etat: { fiche: PROFIL, equipe }, whois: { loading: false, error: false, data: WHOIS } });
-		let section = tout.find((n) => classe(n) === "fiche-whois");
-		assert.ok(section, "visible hors équipe comme pour l'équipe");
+		let haut = tout.find((n) => classe(n) === "fiche-whois fiche-whois-haut");
+		let bas = tout.find((n) => classe(n) === "fiche-whois fiche-whois-bas");
+		assert.ok(haut && bas, "visible hors équipe comme pour l'équipe");
 		assert.ok(!tout.some((n) => n.type === "details"), "aucun repli");
-		assert.doesNotMatch(texte(section), /Sur le t'Chat|SUR LE T'CHAT/i, "plus de titre");
-		let enfants = [...noeuds(section.props.children)].filter((n) => n && n.props && classe(n));
+		assert.doesNotMatch(texte(haut) + texte(bas), /Sur le t'Chat/i, "pas de titre");
+		let enfants = [...noeuds(bas.props.children)].filter((n) => n && n.props && classe(n));
 		assert.equal(classe(enfants[0]), "nick-menu-sep");
 		assert.equal(classe(enfants[1]), "whois-row", "les lignes suivent directement le trait");
 		let l = lignes(tout);
-		assert.equal(l[0], "Masquekahen@vhost.aurasync.fr");
+		assert.deepEqual(l.slice(0, 2), ["Masquekahen@vhost.aurasync.fr", "Rôle réseauModérateur du réseau"]);
 		assert.ok(!l.some((x) => x.startsWith("Adresse réelle")), "pas d'adresse réelle si le serveur ne l'envoie pas");
 		let salons = tout.find((n) => classe(n) === "whois-chans").props.children.map(texte);
 		assert.deepEqual(salons, ["%#jeux", "#AuraSync", "@#bretagne", "+#aide", "?#abus", "#addictions"], "tous, tels quels, sans filtre");
-		assert.ok(l.includes("Inactivité6 min"));
-		assert.ok(l.some((x) => x.startsWith("Connexion06/11/2026")));
-		// Ordre : actions, modération, puis WHOIS
+		assert.equal(l[2], "Salons" + salons.join(""));
+		assert.equal(l[3], "Inactivité6 min");
+		assert.ok(l[4].startsWith("Connexion06/11/2026"));
+		// Ordre : en-tête, masque et rôle réseau, actions, modération, salons
 		let i = (pred) => tout.findIndex(pred);
+		assert.ok(i((n) => classe(n) === "fiche-tete") < i((n) => n === haut));
+		assert.ok(i((n) => n === haut) < i((n) => classe(n) === "fiche-actions"));
 		assert.ok(i((n) => classe(n) === "fiche-actions") < i((n) => texte(n) === "MODÉRATION"));
-		assert.ok(i((n) => texte(n) === "MODÉRATION") < i((n) => classe(n) === "fiche-whois"));
+		assert.ok(i((n) => texte(n) === "MODÉRATION") < i((n) => n === bas));
 	}
+});
+
+test("disposition : l'insigne à droite de l'en-tête, après le nom, avant la croix", () => {
+	let tete = rendre({}).find((n) => classe(n) === "fiche-tete");
+	let enfants = [].concat(tete.props.children).filter((n) => n && n.props);
+	let classes = enfants.map((n) => classe(n));
+	assert.deepEqual(classes, ["av-aura", "fiche-ident", "fiche-role", "fiche-fermer"]);
+	assert.ok(!texte(enfants[1]).includes("Modérateur"), "le libellé n'est plus sous le nom");
+	assert.equal(texte(enfants[2]), "Modérateur");
 });
 
 test("WHOIS : l'adresse réelle seulement si le serveur envoie le 378, telle quelle", () => {
@@ -362,7 +376,8 @@ test("WHOIS : pour chaque cas de la fiche, attente et pseudo absent", () => {
 		{ kind: "indisponible", pseudo: "Kahen" }, { kind: "service", pseudo: "Kahen", libelle: "x" },
 		{ kind: "temporaire", pseudo: "Kahen" }, { ...PROFIL, moi: true }]) {
 		let tout = rendre({ etat: { fiche: card }, whois: { loading: false, error: false, data: WHOIS } });
-		assert.ok(tout.some((n) => classe(n) === "fiche-whois"), card.kind);
+		assert.ok(tout.some((n) => classe(n) === "fiche-whois fiche-whois-haut"), card.kind);
+		assert.ok(tout.some((n) => classe(n) === "fiche-whois fiche-whois-bas"), card.kind);
 	}
 	let attente = rendre({ whois: { loading: true, error: false, data: null } });
 	assert.equal(texte(attente.find((n) => classe(n) === "whois-wait")), "Recherche…");
@@ -423,32 +438,55 @@ test("nom d'un salon du 319 : rang, multi-prefix, « ? » et « ! » d'un oper r
 	assert.equal(nomDuSalon("#jeux", null), "#jeux", "sans syntaxe : celle d'UnrealIRCd");
 });
 
-test("rôle réseau (313) : textes d'UnrealIRCd 6.2.7 traduits, repli français pour un texte inconnu", () => {
-	assert.deepEqual(roleReseau("is an IRC Operator"), { libelle: "Opérateur du réseau", connu: true });
-	assert.deepEqual(roleReseau("is an IRC Operator (Jeff) [netadmin]"), { libelle: "Administrateur du réseau", connu: true });
-	assert.deepEqual(roleReseau("is an IRC Operator (Jeff) [netadmin-with-override]"), { libelle: "Administrateur du réseau", connu: true });
-	assert.equal(roleReseau("is an IRC Operator (a) [admin]").libelle, "Administrateur du serveur");
-	assert.equal(roleReseau("is an IRC Operator (a) [services-admin]").libelle, "Administrateur des services");
-	assert.equal(roleReseau("is an IRC Operator (a) [globop]").libelle, "Opérateur du réseau");
-	assert.equal(roleReseau("is an IRC Operator (a) [locop]").libelle, "Opérateur du serveur");
-	assert.equal(roleReseau("is an IRC Operator (a)").libelle, "Opérateur du réseau");
-	assert.equal(roleReseau("is an IRC Operator (a) [maison]").libelle, "Opérateur du réseau", "classe maison : toujours un oper");
-	assert.deepEqual(roleReseau("is a Network Service"), { libelle: "Service du t'Chat", connu: true });
-	for (let inconnu of ["is a Network Administrator", "is a Services Operator", "", undefined]) {
-		assert.deepEqual(roleReseau(inconnu), { libelle: ROLE_INCONNU, connu: false });
+test("rôle réseau : tiré du rôle sur le site, plus du 313", () => {
+	assert.equal(roleReseau("founder"), "Administrateur du réseau");
+	assert.equal(roleReseau("administrator"), "Administrateur du réseau");
+	assert.equal(roleReseau("operator"), "Opérateur du réseau");
+	assert.equal(roleReseau("moderator"), "Modérateur du réseau");
+	for (let rien of [null, undefined, "user", "toString", ""]) {
+		assert.equal(roleReseau(rien), null);
 	}
-	assert.doesNotMatch(ROLE_INCONNU, /IRC|[A-Za-z]+ Operator/);
+	assert.equal(cas({ ...PROFIL, role: "operator" }).roleReseau, "Opérateur du réseau");
+	assert.equal(cas({ ...PROFIL, role: null }).roleReseau, null);
+	assert.equal(cas({ ...PROFIL, role: "operator", moi: true, prive: true }).roleReseau, "Opérateur du réseau", "sa propre fiche aussi");
+	for (let card of [{ kind: "bloque_par_moi", pseudo: "K" }, { kind: "indisponible", pseudo: "K" },
+		{ kind: "service", pseudo: "K", libelle: "x" }, { kind: "temporaire", pseudo: "K" }]) {
+		assert.equal(cas(card).roleReseau, null, card.kind);
+	}
 });
 
-test("rôle réseau : une ligne seulement si le serveur envoie le 313, sans le login, sans doublon de l'insigne", () => {
-	let sans = lignes(rendre({ whois: { loading: false, error: false, data: WHOIS } }));
-	assert.ok(!sans.some((x) => x.startsWith("Rôle réseau")));
-	let data = { ...WHOIS, 313: { params: ["Moi", "Kahen", "is an IRC Operator (kahen-login) [netadmin]"] } };
-	let tout = rendre({ whois: { loading: false, error: false, data } });
-	let l = lignes(tout);
-	assert.ok(l.includes("Rôle réseauAdministrateur du réseau"));
-	assert.doesNotMatch(texte(tout), /kahen-login|netadmin|IRC Operator/);
-	assert.equal(tout.filter((n) => classe(n) === "fiche-role").length, 1, "l'insigne du site reste seul");
+test("rôle réseau : même ligne pour tous les lecteurs, le 313 ignoré, pas de ligne sans rôle", () => {
+	let oper = { 313: { params: ["Moi", "Kahen", "is an IRC Operator (kahen) [netadmin]"] } };
+	for (let data of [WHOIS, { ...WHOIS, ...oper }]) {
+		for (let equipe of [false, true]) {
+			let l = lignes(rendre({ etat: { fiche: { ...PROFIL, role: "operator" }, equipe }, whois: { loading: false, error: false, data } }));
+			assert.equal(l.filter((x) => x.startsWith("Rôle réseau")).length, 1);
+			assert.ok(l.includes("Rôle réseauOpérateur du réseau"));
+		}
+	}
+	let sansRole = rendre({ etat: { fiche: { ...PROFIL, role: null } }, whois: { loading: false, error: false, data: { ...WHOIS, ...oper } } });
+	assert.ok(!lignes(sansRole).some((x) => x.startsWith("Rôle réseau")), "un oper du serveur sans rôle sur le site : pas de ligne");
+	assert.doesNotMatch(texte(sansRole), /netadmin|IRC Operator|Administrateur/);
+	// Ordre : masque, rôle réseau, adresse réelle
+	let data = { ...WHOIS, 378: { params: ["Moi", "Kahen", "is connecting from *@x 1.2.3.4"] } };
+	let l = lignes(rendre({ whois: { loading: false, error: false, data } }));
+	assert.deepEqual(l.slice(0, 3), ["Masquekahen@vhost.aurasync.fr", "Rôle réseauModérateur du réseau", "Adresse réelle*@x 1.2.3.4"]);
+	// L'insigne reste seul en tête ; le rôle réseau ne le répète pas
+	assert.equal(rendre({ whois: { loading: false, error: false, data } }).filter((n) => classe(n) === "fiche-role").length, 1);
+});
+
+test("WHOIS sans salons ni horaires : pas de trait seul en bas de la fiche", () => {
+	let tout = rendre({ whois: { loading: false, error: false, data: { 311: WHOIS["311"] } } });
+	assert.ok(tout.some((n) => classe(n) === "fiche-whois fiche-whois-haut"));
+	assert.ok(!tout.some((n) => classe(n) === "fiche-whois fiche-whois-bas"));
+});
+
+test("rôle réseau : en attente du WHOIS ou pseudo absent, la ligne reste", () => {
+	let attente = lignes(rendre({ whois: { loading: true, error: false, data: null } }));
+	assert.deepEqual(attente, ["Rôle réseauModérateur du réseau"]);
+	let absent = rendre({ whois: { loading: false, error: true, data: null } });
+	assert.deepEqual(lignes(absent), ["Rôle réseauModérateur du réseau"]);
+	assert.ok(!absent.some((n) => classe(n) === "fiche-whois fiche-whois-bas"));
 });
 
 test("App : un salon du WHOIS rejoint comme /join, ou s'ouvre si j'y suis ; la fiche se ferme", () => {
@@ -475,23 +513,6 @@ test("App : un salon du WHOIS rejoint comme /join, ou s'ouvre si j'y suis ; la f
 	// selection.ajouter ignore un salon jamais retenu (test/selection.test.js)
 	let source = readFileSync(new URL("../components/app.js", import.meta.url), "utf8");
 	assert.match(source, /rejoindre\(target, serverID, password\) \{\n\t\tlet promesse = this\.open\(target, serverID, password\);\n\t\tif \(promesse\) \{\n\t\t\tpromesse\.then\(\(ok\) => \{\n\t\t\t\tif \(ok\) \{\n\t\t\t\t\tthis\.selection\.ajouter\(target\);/);
-});
-
-test("App : un 313 inconnu part dans la console (D-056), la fiche montre le repli", async () => {
-	let { app } = appMinimal({ equipe: false });
-	app.clients.get(1).whois = () => Promise.resolve({ 313: { params: ["", "Kahen", "is a Network Administrator"] } });
-	let erreurs = [];
-	let avant = console.error;
-	console.error = (...a) => erreurs.push(a.join(" "));
-	try {
-		app.chargerWhois("Kahen");
-		await new Promise((r) => setTimeout(r, 0));
-	} finally {
-		console.error = avant;
-	}
-	assert.equal(erreurs.length, 1);
-	assert.match(erreurs[0], /313.*is a Network Administrator/);
-	assert.equal(app.state.whois.loading, false);
 });
 
 test("modération (D-060) : la voix, et le statut opérateur", () => {

@@ -9,14 +9,18 @@
  *   d'adresse ;
  * - l'adresse reelle (378), que UnrealIRCd n'envoie qu'aux opers et a
  *   soi-meme ;
- * - le role sur le reseau (313), traduit, seulement si le serveur l'envoie ;
  * - tous les salons du 319, avec leur prefixe de rang, sans aucun filtre :
  *   le serveur retire lui-meme les salons +s pour qui n'y est pas. Chaque
  *   salon est un bouton : un clic le rejoint, ou l'ouvre si on y est deja
  *   (seconde retouche du 7 novembre) ;
  * - l'inactivite et l'heure de connexion (317).
  * Les donnees de moderation (score de reputation, groupes de securite) sont
- * volontairement ignorees.
+ * volontairement ignorees, comme le 313 : le « Role reseau » vient du role
+ * sur le site (lib/fiche.js, troisieme retouche du 7 novembre).
+ *
+ * Deux blocs dans la fiche (troisieme retouche) : LignesHaut sous l'en-tete
+ * (masque, role reseau, adresse reelle), LignesBas apres les actions et la
+ * moderation (salons, inactivite, connexion).
  */
 
 import { html } from "../lib/index.js";
@@ -31,35 +35,6 @@ export function duree(seconds) {
 	if (h < 24) return h + " h " + (m % 60) + " min";
 	let d = Math.floor(h / 24);
 	return d + " j " + (h % 24) + " h";
-}
-
-/*
- * Le 313 d'UnrealIRCd 6.2.7, lu dans ses sources (src/modules/whois.c et
- * usermodes/servicebot.c) : « is an IRC Operator », suivi pour qui a le
- * detail complet (un oper, soi-meme) de « (login) [operclass] » ; ou bien
- * « is a Network Service ». La classe precise le role ; le login n'est
- * jamais montre. Les classes sont celles de operclass.default.conf.
- */
-const CLASSES = {
-	"netadmin": "Administrateur du réseau",
-	"services-admin": "Administrateur des services",
-	"admin": "Administrateur du serveur",
-	"globop": "Opérateur du réseau",
-	"locop": "Opérateur du serveur",
-};
-export const ROLE_INCONNU = "Rôle particulier sur le t'Chat";
-
-/* { libelle, connu } ; un texte inconnu donne la phrase de repli (D-056). */
-export function roleReseau(texte) {
-	let m = /^is (an IRC Operator|a Network Service)(?: \(([^)]*)\))?(?: \[([^\]]*)\])?$/.exec((texte || "").trim());
-	if (!m) {
-		return { libelle: ROLE_INCONNU, connu: false };
-	}
-	if (m[1] === "a Network Service") {
-		return { libelle: "Service du t'Chat", connu: true };
-	}
-	let classe = (m[3] || "").replace(/-with-override$/, "");
-	return { libelle: CLASSES[classe] || "Opérateur du réseau", connu: true };
 }
 
 /*
@@ -104,8 +79,6 @@ export function lignesWhois(whois) {
 		adresse = (m ? m[1] : texte) || null;
 	}
 
-	let role = whois["313"] ? roleReseau(whois["313"].params[2]) : null;
-
 	let salons = null;
 	if (whois["319"]) {
 		let list = (whois["319"].params[2] || "").trim();
@@ -123,17 +96,30 @@ export function lignesWhois(whois) {
 			});
 		}
 	}
-	return { masque, adresse, role, salons, inactivite, connexion };
+	return { masque, adresse, salons, inactivite, connexion };
 }
 
-export function SurLeTchat(props) {
-	let { data, loading, error, syntaxe, onSalon } = props;
+/* Sous l'en-tete : masque, role reseau (du site, `roleReseau`), adresse reelle. */
+export function LignesHaut(props) {
+	let { data, loading, error, roleReseau } = props;
+	let l = data ? lignesWhois(data) : {};
+	let attente = null;
 	if (loading) {
-		return html`<div class="whois-wait">Recherche…</div>`;
+		attente = html`<div class="whois-wait">Recherche…</div>`;
+	} else if (error) {
+		attente = html`<div class="whois-wait">Ce pseudo n'est pas connecté</div>`;
 	}
-	if (error) {
-		return html`<div class="whois-wait">Ce pseudo n'est pas connecté</div>`;
-	}
+	return html`
+		<${Row} label="Masque" value=${l.masque}/>
+		<${Row} label="Rôle réseau" value=${roleReseau}/>
+		<${Row} label="Adresse réelle" value=${l.adresse}/>
+		${attente}
+	`;
+}
+
+/* Apres les actions : salons (cliquables), inactivite, connexion. */
+export function LignesBas(props) {
+	let { data, syntaxe, onSalon } = props;
 	if (!data) {
 		return null;
 	}
@@ -151,9 +137,6 @@ export function SurLeTchat(props) {
 		})}</div>`
 		: null;
 	return html`
-		<${Row} label="Masque" value=${l.masque}/>
-		<${Row} label="Adresse réelle" value=${l.adresse}/>
-		<${Row} label="Rôle réseau" value=${l.role && l.role.libelle}/>
 		<${Row} label="Salons" value=${salons}/>
 		<${Row} label="Inactivité" value=${l.inactivite}/>
 		<${Row} label="Connexion" value=${l.connexion}/>

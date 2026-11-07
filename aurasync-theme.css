@@ -1618,6 +1618,13 @@ ul.switcher-list li a.selected {
 	gap: 12px;
 	padding: 8px 6px 10px 8px;
 }
+/* Entre le nom, l'insigne et la croix : plus serre qu'a cote de l'anneau */
+.fiche-tete > .fiche-role {
+	margin-left: -4px;
+}
+.fiche-tete > .fiche-fermer {
+	margin-left: -8px;
+}
 .fiche-ident {
 	flex: 1;
 	min-width: 0;
@@ -1647,21 +1654,23 @@ ul.switcher-list li a.selected {
 	background-clip: text;
 	color: transparent;
 }
-.fiche-badges {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 6px 10px;
-	margin-top: 6px;
-}
 /* Insigne du role : celui du profil du site (RoleEmblem.svelte, variante
-   ring), teinte emblemTint, avec son libelle simple (roles.ts) */
+   ring), teinte emblemTint, avec son libelle simple (roles.ts). A droite de
+   l'en-tete (troisieme retouche du 7 novembre) : l'insigne au-dessus de son
+   libelle, comme sur le profil, le haut aligne sur le nom ; la croix suit,
+   dans sa propre colonne, sans chevauchement. */
 .fiche-role {
-	display: inline-flex;
+	display: flex;
+	flex: none;
+	flex-direction: column;
 	align-items: center;
-	gap: 6px;
-	font-size: 12.5px;
+	gap: 3px;
+	max-width: 96px;
+	padding-top: 4px;
+	font-size: 11.5px;
 	font-weight: 600;
+	line-height: 1.2;
+	text-align: center;
 	white-space: nowrap;
 }
 .role-emblem {
@@ -1789,6 +1798,10 @@ ul.switcher-list li a.selected {
 .fiche-whois {
 	padding-bottom: 4px;
 	font-size: 12.5px;
+}
+/* Masque, role reseau, adresse reelle : juste sous l'en-tete */
+.fiche-whois-haut {
+	padding: 0 0 6px;
 }
 .fiche-whois .whois-key {
 	width: 96px;

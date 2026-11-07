@@ -2,10 +2,12 @@
  * La fiche d'un pseudo (D-066, point 8, variante A).
  *
  * Une seule fiche remplace le menu d'un pseudo et « Qui est-ce ? » : avatar
- * de 64 px dans l'anneau du profil du site, nom affiche, @pseudo dans le
- * degrade du site, insigne du role, puis les actions, puis la moderation
- * (D-060) pour % et @, puis le WHOIS. Ni rang dans le salon ni statut du
- * profil (seconde retouche du 7 novembre). Le contenu, cas par cas, est decide par lib/fiche.js. En mobile,
+ * de 64 px dans l'anneau du profil du site, nom affiche et @pseudo dans le
+ * degrade du site, insigne du role a droite (troisieme retouche du 7
+ * novembre). Dessous : masque, role reseau, adresse reelle ; puis les
+ * actions, la moderation (D-060) pour % et @, et le reste du WHOIS
+ * (salons, inactivite, connexion). Ni rang dans le salon, ni statut, ni
+ * « Profil prive ». Le contenu, cas par cas, est decide par lib/fiche.js. En mobile,
  * feuille du bas (CSS).
  *
  * Le WHOIS se montre a tous (point 8 revise le 7 novembre), sans repli : il
@@ -15,7 +17,7 @@
 import { html, Component } from "../lib/index.js";
 import { peutRendreMuet } from "../lib/mutisme.js";
 import { avecAnneau, contenuFiche, TEXTES } from "../lib/fiche.js";
-import { SurLeTchat } from "./whois-panel.js";
+import { lignesWhois, LignesBas, LignesHaut } from "./whois-panel.js";
 import Insigne from "./insigne.js";
 
 const FICHE_W = 320;
@@ -136,15 +138,14 @@ export default class NickMenu extends Component {
 		let canModerate = contenu.moderation && rank(selfMembership) >= 3;
 		let targetRank = rank(targetMembership);
 
-		let badges = null;
+		// L'insigne et son libelle, a droite de l'en-tete, alignes sur le nom
+		let insigne = null;
 		if (contenu.role) {
-			badges = html`
-				<div class="fiche-badges">
-					<span class="fiche-role" style=${"color:" + contenu.role.teinte}>
-						<${Insigne} insigne=${contenu.role} taille=${36}/>
-						<span class="fiche-role-libelle">${contenu.role.libelle}</span>
-					</span>
-				</div>
+			insigne = html`
+				<span class="fiche-role" style=${"color:" + contenu.role.teinte}>
+					<${Insigne} insigne=${contenu.role} taille=${36}/>
+					<span class="fiche-role-libelle">${contenu.role.libelle}</span>
+				</span>
 			`;
 		}
 
@@ -207,16 +208,29 @@ export default class NickMenu extends Component {
 			`;
 		}
 
-		// Le WHOIS, pour tous et pour chaque cas : ce que le serveur envoie,
-		// sans titre, directement sous le trait
-		let infos = null;
-		if (whois && (whois.loading || whois.error || whois.data)) {
-			infos = html`
-				<section class="fiche-whois" aria-label=${TEXTES.whois}>
-					<div class="nick-menu-sep"></div>
-					<${SurLeTchat} ...${whois} syntaxe=${this.props.syntaxe} onSalon=${this.props.onSalon}/>
+		// Le WHOIS, pour tous et pour chaque cas, en deux blocs. En haut, le
+		// masque et l'adresse reelle tels que le serveur les envoie, et le
+		// role reseau, tire du role sur le site.
+		let lu = whois && (whois.loading || whois.error || whois.data) ? whois : null;
+		let haut = null;
+		if (lu || contenu.roleReseau) {
+			haut = html`
+				<section class="fiche-whois fiche-whois-haut" aria-label=${TEXTES.whois}>
+					<${LignesHaut} ...${lu || {}} roleReseau=${contenu.roleReseau}/>
 				</section>
 			`;
+		}
+		let bas = null;
+		if (lu && lu.data) {
+			let l = lignesWhois(lu.data);
+			if (l.salons || l.inactivite || l.connexion) {
+				bas = html`
+					<section class="fiche-whois fiche-whois-bas" aria-label=${TEXTES.whois}>
+						<div class="nick-menu-sep"></div>
+						<${LignesBas} data=${lu.data} syntaxe=${this.props.syntaxe} onSalon=${this.props.onSalon}/>
+					</section>
+				`;
+			}
 		}
 
 		return html`
@@ -232,16 +246,17 @@ export default class NickMenu extends Component {
 					<div class="fiche-ident">
 						<div class="fiche-nom">${contenu.titre}</div>
 						<div class="fiche-pseudo handle-grad">${contenu.pseudo}</div>
-						${badges}
 					</div>
+					${insigne}
 					<button class="fiche-fermer" type="button" onClick=${this.props.onClose}
 						aria-label="Fermer la fiche">×</button>
 				</div>
 				${contenu.note ? html`<p class="fiche-note">${contenu.note}</p>` : null}
 				${contenu.sousNote ? html`<p class="fiche-sous-note">${contenu.sousNote}</p>` : null}
+				${haut}
 				${actions.length ? html`<div class="fiche-actions">${actions}</div>` : null}
 				${moderation}
-				${infos}
+				${bas}
 			</div>
 		`;
 	}
