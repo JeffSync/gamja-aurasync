@@ -299,7 +299,7 @@ test("fil : rangs, bans et mutismes gardent leurs phrases, même mêlés", () =>
 	recoit({ command: "MODE", prefix: JEFF, params: ["#jeux", "-b", "*!*@ZZZ.YYY.XXX.IP"] });
 	let l = lignes();
 	let voir = l.join("\n");
-	assert.ok(l.some((x) => x.endsWith("Jeff a donné les privilèges de opérateur à Kahen et retiré les privilèges de voix à Kahen")), voir);
+	assert.ok(l.some((x) => x.endsWith("Jeff a donné le statut opérateur à Kahen et retiré la voix à Kahen")), voir);
 	assert.ok(l.some((x) => x.endsWith("Jeff a rendu Kahen muet(te)")), voir);
 	assert.ok(l.some((x) => x.endsWith("Jeff a rendu la parole à Kahen et activé le salon modéré")), voir);
 	assert.ok(l.some((x) => x.endsWith("Jeff a banni Kahen")), voir);

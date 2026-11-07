@@ -10,7 +10,7 @@ import { analyseKick, translateError, translateServerNotice, translateServerMode
 import { estServeur, nomServeur } from "../lib/serveur.js";
 import { motifDepart } from "../lib/evenements.js";
 import { cibleBan, expulsesAvant, libelleMasque, verbeBan } from "../lib/ban.js";
-import { assembler, fragmentReglage, REGLAGE_INCONNU } from "../lib/reglages.js";
+import { assembler, fragmentReglage, phraseRang, REGLAGE_INCONNU } from "../lib/reglages.js";
 import { avantHistorique, SEPARATEUR_HISTORIQUE } from "../lib/historique.js";
 import { segmentsMarques } from "../lib/pour-toi.js";
 import { TEXTES } from "../lib/notifications.js";
@@ -141,8 +141,7 @@ function ligneMode(msg, buf, server, createNick) {
 	let inconnu = false;
 	for (let { mode, add, arg } of changements) {
 		if (rangs.has(mode) && arg) {
-			let nom = irc.STD_MEMBERSHIP_NAMES[rangs.get(mode)];
-			morceaux.push(html`${add ? "donné" : "retiré"} les privilèges de ${nom} à ${createNick(arg)}`);
+			morceaux.push(html`${phraseRang(rangs.get(mode), add)} ${createNick(arg)}`);
 			continue;
 		}
 		if (mode === "b" && arg) {
