@@ -2,6 +2,7 @@ import * as irc from "./lib/irc.js";
 import Client from "./lib/client.js";
 import { createContext } from "./lib/index.js";
 import { placerAccueil } from "./lib/accueil.js";
+import { appliquerMode, unirVerrous } from "./lib/reglages.js";
 
 export const SERVER_BUFFER = "*";
 
@@ -360,6 +361,7 @@ export const State = {
 			reliableUserAccounts: false,
 			statusMsg: null, // from ISUPPORT STATUSMSG
 			membershipModes: null, // from ISUPPORT PREFIX
+			chanModes: null, // from ISUPPORT CHANMODES (D-068)
 			isBouncer: false,
 			bouncerNetID: null,
 		});
@@ -392,6 +394,8 @@ export const State = {
 			serverInfo: null, // if server
 			joined: false, // if channel
 			topic: null, // if channel
+			modes: {}, // if channel : { lettre: valeur }, 324 et MODE (D-068)
+			verrous: "", // if channel : lettres verrouillees annoncees par un 742, pour la session
 			hasInitialWho: false, // if channel
 			members: new irc.CaseMapMap(null, client.cm), // if channel
 			messages: [],
@@ -468,6 +472,7 @@ export const State = {
 						reliableUserAccounts: client.isupport.monitor() > 0 && client.isupport.whox(),
 						statusMsg: client.isupport.statusMsg(),
 						membershipModes: client.isupport.membershipModes(),
+						chanModes: client.isupport.chanModes(),
 						bouncerNetID: client.isupport.bouncerNetID(),
 					};
 				}),
@@ -691,9 +696,14 @@ export const State = {
 
 			return updateBuffer(target, (buf) => {
 				let members = new irc.CaseMapMap(buf.members);
+				let modes = buf.modes || {};
 
-				irc.forEachChannelModeUpdate(msg, client.isupport, (mode, add, arg) => {
+				irc.forEachChannelModeUpdate(msg, client.isupport, (mode, add, arg, type) => {
 					if (!prefixByMode.has(mode)) {
+						// D-068 : l'etat des reglages, suivi en direct
+						if (type) {
+							modes = appliquerMode(modes, mode, add, arg, type);
+						}
 						return;
 					}
 					let nick = arg;
@@ -705,7 +715,26 @@ export const State = {
 					members.set(nick, updateMembership(membership, letter, add, client));
 				});
 
-				return { members };
+				return { members, modes };
+			});
+		case irc.RPL_CHANNELMODEIS:
+			// D-068 : l'etat complet des reglages, quand il arrive (le lot B le
+			// demandera a l'ouverture du menu). Jamais affiche dans le fil.
+			channel = msg.params[1];
+			return updateBuffer(channel, () => {
+				let modes = {};
+				let lu = { command: "MODE", params: [channel, ...msg.params.slice(2)] };
+				irc.forEachChannelModeUpdate(lu, client.isupport, (mode, add, arg, type) => {
+					modes = appliquerMode(modes, mode, add, arg, type);
+				});
+				return { modes };
+			});
+		case irc.ERR_MLOCKRESTRICTED:
+			// D-068 : le serveur annonce les lettres verrouillees par SalonSync
+			// (mode.c:994-1003). Gardees pour la session (menu, lot B).
+			channel = msg.params[1];
+			return updateBuffer(channel, (buf) => {
+				return { verrous: unirVerrous(buf.verrous, msg.params[3]) };
 			});
 		case "REDACT":
 			target = msg.params[0];

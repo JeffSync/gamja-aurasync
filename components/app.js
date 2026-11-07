@@ -23,7 +23,7 @@ import { SERVER_BUFFER, BufferType, ReceiptType, ServerStatus, Unread, BufferEve
 import commands from "../commands.js";
 import NickMenu from "./nick-menu.js";
 import ChannelList from "./channel-list.js";
-import { translateError, displayError, isRefusal } from "../lib/irc-errors.js";
+import { translateError, displayError, isRefusal, refusReglageReserve } from "../lib/irc-errors.js";
 import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
 import { configAutojoin, connectAutojoin, takeOneShot, buffersToRestore } from "../lib/autojoin.js";
 import { createSelection } from "../lib/selection.js";
@@ -39,6 +39,7 @@ import { contenuNotification, doitNotifier, optionsNotification, tagConversation
 import { creerNotifier, enregistrerServiceWorker } from "../lib/notifier.js";
 import { refusSuspension } from "../lib/suspension.js";
 import { creerCacheFiches } from "../lib/fiche.js";
+import { estServeur } from "../lib/serveur.js";
 import { setup as setupKeybindings } from "../keybindings.js";
 import * as store from "../store.js";
 
@@ -1292,6 +1293,17 @@ export default class App extends Component {
 			return [bufName];
 		case irc.RPL_CHANNELMODEIS:
 		case irc.RPL_CREATIONTIME:
+			// D-068 : l'etat des reglages, lu par state.js (buf.modes), jamais
+			// affiche dans le fil.
+			return [];
+		case irc.ERR_MLOCKRESTRICTED:
+			// D-068 : refus du verrou de SalonSync, dans le salon vise et non
+			// dans l'onglet serveur masque.
+			channel = msg.params[1];
+			if (!State.getBuffer(this.state, { server: serverID, name: channel })) {
+				return [SERVER_BUFFER];
+			}
+			return [channel];
 		case irc.RPL_INVITELIST:
 		case irc.RPL_ENDOFINVITELIST:
 		case irc.RPL_EXCEPTLIST:
@@ -1449,6 +1461,11 @@ export default class App extends Component {
 			// D-059 : le membre rendu muet le voit aussi en banniere.
 			if (client.isMyNick(msg.params[0]) && this.salonMutisme(serverID, msg)) {
 				this.showError(msg.params[1]);
+			}
+			// D-068 : refus de restrict-channelmodes, une NOTICE du serveur qui
+			// partirait dans l'onglet masque.
+			if (client.isMyNick(msg.params[0]) && estServeur(msg.prefix && msg.prefix.name) && refusReglageReserve(msg.params[1])) {
+				this.showError(refusReglageReserve(msg.params[1]));
 			}
 			break;
 		case "BOUNCER":

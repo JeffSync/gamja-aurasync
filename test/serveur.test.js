@@ -64,7 +64,8 @@ test("MODE posé par le serveur : « Le t'Chat a ralenti… » (anti-flood)", ()
 
 test("MODE inconnu posé par le serveur : pas de nom de serveur", () => {
 	let t = ligne({ command: "MODE", prefix: { name: SERVEUR }, params: ["#aide", "+M"] });
-	assert.match(t, /Le t'Chat applique le mode \+M/);
+	assert.match(t, /Le t'Chat a réservé la parole aux comptes identifiés/);
+	assert.doesNotMatch(t, /applique le mode/);
 	assert.doesNotMatch(t, /aurasync\.fr/);
 });
 
@@ -82,7 +83,7 @@ test("KICK par le serveur : « par le t'Chat », en minuscule", () => {
 
 test("une personne reste nommée", () => {
 	let t = ligne({ command: "MODE", prefix: { name: "Jeff", user: "jeff", host: "x" }, params: ["#aide", "+m"] });
-	assert.match(t, /Jeff a activé le mode modération du salon/);
+	assert.match(t, /Jeff a activé le salon modéré/);
 	t = ligne({ command: "KICK", prefix: { name: "Jeff", user: "jeff", host: "x" }, params: ["#aide", "Kahen", "spam"] });
 	assert.match(t, /par Jeff/);
 });

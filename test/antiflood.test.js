@@ -137,5 +137,5 @@ test("rendu : +m et -m par le serveur ; par une personne, la ligne habituelle", 
 	assert.match(serveur("+"), /Le t'Chat a ralenti le salon pendant 2 minutes : trop de messages en même temps\./);
 	assert.match(serveur("-"), /Le t'Chat a rouvert le salon à tout le monde\./);
 	let jeff = ligne({ command: "MODE", prefix: { name: "Jeff" }, params: ["#aide", "-m"] });
-	assert.match(jeff, /Jeff a retiré le mode modération du salon/);
+	assert.match(jeff, /Jeff a désactivé le salon modéré/);
 });

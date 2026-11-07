@@ -6,10 +6,11 @@ import { BufferType, ServerStatus, getMessageURL, isMessageBeforeReceipt, Settin
 import * as store from "../store.js";
 import Membership from "./membership.js";
 import { pseudoMuet } from "../lib/mutisme.js";
-import { analyseKick, translateServerNotice, translateServerMode } from "../lib/irc-errors.js";
+import { analyseKick, translateError, translateServerNotice, translateServerMode } from "../lib/irc-errors.js";
 import { estServeur, nomServeur } from "../lib/serveur.js";
 import { motifDepart } from "../lib/evenements.js";
-import { cibleBan, expulsesAvant, verbeBan } from "../lib/ban.js";
+import { cibleBan, expulsesAvant, libelleMasque, verbeBan } from "../lib/ban.js";
+import { assembler, fragmentReglage, REGLAGE_INCONNU } from "../lib/reglages.js";
 import { avantHistorique, SEPARATEUR_HISTORIQUE } from "../lib/historique.js";
 import { segmentsMarques } from "../lib/pour-toi.js";
 import { TEXTES } from "../lib/notifications.js";
@@ -98,6 +99,97 @@ function Timestamp(props) {
 			`}
 		</>
 	`;
+}
+
+/* Les classes de CHANMODES et les rangs, tels que le serveur les annonce. */
+function isupportDe(server) {
+	return {
+		chanModes: () => server.chanModes || ["beI", "k", "l", "imnst"],
+		membershipModes: () => server.membershipModes || [],
+	};
+}
+
+/*
+ * Une ligne MODE en une phrase francaise (D-056, D-068) : « Jeff a activé
+ * le salon modéré et retiré les couleurs des messages ». Les bans, les
+ * mutismes et les rangs gardent leurs phrases (D-058, D-059, D-062) ; un
+ * masque n'est jamais montre brut (lib/ban.js) ; une lettre inconnue du fork
+ * donne « a changé un réglage du salon », et son detail part dans la
+ * console.
+ */
+function ligneMode(msg, buf, server, createNick) {
+	let auteur = createNick(msg.prefix.name);
+	let changements = [];
+	try {
+		irc.forEachChannelModeUpdate(msg, isupportDe(server), (mode, add, arg, type) => {
+			changements.push({ mode, add, arg, type });
+		});
+	} catch (err) {
+		console.error("Ligne MODE illisible :", msg.params.join(" "), err);
+		return html`${auteur} a ${REGLAGE_INCONNU}`;
+	}
+	if (buf.type !== BufferType.CHANNEL) {
+		return html`${auteur} a changé tes réglages de connexion`;
+	}
+	// Anti-flood : le serveur ralentit le salon, puis le rouvre
+	if (changements.length === 1 && changements[0].mode === "m" && estServeur(msg.prefix.name)) {
+		return translateServerMode(changements[0].add ? "+" : "-", "m");
+	}
+
+	let rangs = new Map((server.membershipModes || []).map((m) => [m.mode, m.prefix]));
+	let morceaux = [];
+	let inconnu = false;
+	for (let { mode, add, arg } of changements) {
+		if (rangs.has(mode) && arg) {
+			let nom = irc.STD_MEMBERSHIP_NAMES[rangs.get(mode)];
+			morceaux.push(html`${add ? "donné" : "retiré"} les privilèges de ${nom} à ${createNick(arg)}`);
+			continue;
+		}
+		if (mode === "b" && arg) {
+			// D-059 : un ~quiet n'est pas un ban, c'est un mutisme.
+			let muet = pseudoMuet(arg);
+			if (muet) {
+				morceaux.push(add ? html`rendu ${createNick(muet)} muet(te)` : html`rendu la parole à ${createNick(muet)}`);
+				continue;
+			}
+			// D-062 : jamais le masque brut. La personne visee si le masque
+			// la designe (expulsee juste avant, ou seule du salon a
+			// correspondre), sinon « une adresse ».
+			let index = buf.messages ? buf.messages.indexOf(msg) : -1;
+			let cible = cibleBan(arg, {
+				expulses: index >= 0 ? expulsesAvant(buf.messages, index) : [],
+				presents: buf.members ? Array.from(buf.members.keys()) : [],
+				personne: (pseudo) => server.users.get(pseudo),
+			});
+			let verbe = verbeBan(add ? "+" : "-", cible).replace(/^a /, "");
+			morceaux.push(cible ? html`${verbe} ${createNick(cible, false)}` : verbe);
+			continue;
+		}
+		if ((mode === "e" || mode === "I") && arg) {
+			// D-068, point 6 : jamais une adresse reelle
+			let qui = libelleMasque(arg).texte;
+			if (mode === "e") {
+				morceaux.push((add ? "ajouté une exemption de ban" : "retiré l'exemption de ban") + " pour " + qui);
+			} else {
+				morceaux.push((add ? "ajouté une invitation permanente" : "retiré l'invitation permanente") + " pour " + qui);
+			}
+			continue;
+		}
+		let fragment = fragmentReglage(mode, add, arg);
+		if (fragment) {
+			morceaux.push(fragment);
+			continue;
+		}
+		console.error("Réglage de salon inconnu :", (add ? "+" : "-") + mode, arg || "");
+		if (!inconnu) {
+			inconnu = true;
+			morceaux.push(REGLAGE_INCONNU);
+		}
+	}
+	if (!morceaux.length) {
+		return html`${auteur} a ${REGLAGE_INCONNU}`;
+	}
+	return html`${auteur} a ${assembler(morceaux)}`;
 }
 
 /* « (connexion perdue) » apres un depart, ou rien (lib/evenements.js). */
@@ -253,103 +345,8 @@ export class LogLine extends Component {
 			break;
 		case "MODE":
 			target = msg.params[0];
-			let modeStr = msg.params[1];
-
-			let user = html`${createNick(msg.prefix.name)}`;
-
-			// TODO: use irc.forEachChannelModeUpdate()
-			if (buf.type === BufferType.CHANNEL && modeStr.length === 2 && server.cm(buf.name) === server.cm(target)) {
-				let plusMinus = modeStr[0];
-				let mode = modeStr[1];
-				let arg = msg.params[2];
-
-				let verb;
-				switch (mode) {
-				case "b":
-					// D-059 : un ~quiet n'est pas un ban, c'est un mutisme.
-					if (pseudoMuet(arg)) {
-						content = plusMinus === "+"
-							? html`${user} a rendu ${createNick(pseudoMuet(arg))} muet(te)`
-							: html`${user} a rendu la parole à ${createNick(pseudoMuet(arg))}`;
-						break;
-					}
-					// D-062 : jamais le masque brut. La personne visee si le
-					// masque la designe (expulsee juste avant, ou seule du
-					// salon a correspondre), sinon « une adresse ».
-					let index = buf.messages ? buf.messages.indexOf(msg) : -1;
-					let cible = cibleBan(arg, {
-						expulses: index >= 0 ? expulsesAvant(buf.messages, index) : [],
-						presents: buf.members ? Array.from(buf.members.keys()) : [],
-						personne: (pseudo) => server.users.get(pseudo),
-					});
-					verb = verbeBan(plusMinus, cible);
-					content = cible
-						? html`${user} ${verb} ${createNick(cible, false)}`
-						: html`${user} ${verb}`;
-					break;
-				case "e":
-					verb = plusMinus === "+" ? "a ajouté" : "a retiré";
-					content = html`${user} ${verb} une exemption de ban pour ${arg}`;
-					break;
-				case "l":
-					if (plusMinus === "+") {
-						content = html`${user} a limité le salon à ${arg} utilisateurs`;
-					} else {
-						content = html`${user} a retiré la limite d'utilisateurs du salon`;
-					}
-					break;
-				case "i":
-					verb = plusMinus === "+" ? "a activé" : "a retiré";
-					content = html`${user} ${verb} le mode invitation du salon`;
-					break;
-				case "m":
-					// Anti-flood : le serveur ralentit le salon, puis le rouvre
-					if (estServeur(msg.prefix.name)) {
-						content = translateServerMode(plusMinus, mode);
-						break;
-					}
-					verb = plusMinus === "+" ? "a activé" : "a retiré";
-					content = html`${user} ${verb} le mode modération du salon`;
-					break;
-				case "s":
-					verb = plusMinus === "+" ? "a rendu secret" : "a rendu public";
-					content = html`${user} ${verb} le salon`;
-					break;
-				case "t":
-					verb = plusMinus === "+" ? "a verrouillé" : "a déverrouillé";
-					content = html`${user} ${verb} le topic du salon`;
-					break;
-				case "n":
-					verb = plusMinus === "+" ? "a interdit" : "a autorisé";
-					content = html`${user} ${verb} les messages externes au salon`;
-					break;
-				}
-				if (content) {
-					break;
-				}
-
-				// Channel membership modes
-				let membershipName;
-				for (let membership of server.membershipModes) {
-					if (membership.mode === mode) {
-						membershipName = irc.STD_MEMBERSHIP_NAMES[membership.prefix];
-						break;
-					}
-				}
-
-				if (membershipName && arg) {
-					let verb = plusMinus === "+" ? "a donné" : "a retiré";
-					content = html`
-						${user} ${verb} les privilèges de ${membershipName} à ${createNick(arg)}
-					`;
-					break;
-				}
-			}
-
-			content = html`
-				${user} applique le mode ${msg.params.slice(1).join(" ")}
-			`;
-			if (server.cm(buf.name) !== server.cm(target)) {
+			content = ligneMode(msg, buf, server, createNick);
+			if (content && server.cm(buf.name) !== server.cm(target)) {
 				content = html`${content} sur ${target}`;
 			}
 			break;
@@ -357,11 +354,11 @@ export class LogLine extends Component {
 			let topic = msg.params[1];
 			if (topic) {
 				content = html`
-					${createNick(msg.prefix.name)} a changé le topic en : ${linkify(stripANSI(topic), onChannelClick)}
+					${createNick(msg.prefix.name)} a changé le sujet : ${linkify(stripANSI(topic), onChannelClick)}
 				`;
 			} else {
 				content = html`
-					${createNick(msg.prefix.name)} a effacé le topic
+					${createNick(msg.prefix.name)} a effacé le sujet
 				`;
 			}
 			break;
@@ -430,11 +427,13 @@ export class LogLine extends Component {
 			}
 			break;
 		case irc.RPL_CHANNELMODEIS:
-			content = html`Le mode du salon est ${msg.params.slice(2).join(" ")}`;
-			break;
 		case irc.RPL_CREATIONTIME:
-			let date = new Date(parseInt(msg.params[2], 10) * 1000);
-			content = html`Le salon a été créé le ${date.toLocaleString()}`;
+			// D-068 : lus par state.js (buf.modes), jamais affiches
+			break;
+		case irc.ERR_MLOCKRESTRICTED:
+			// D-068 : le verrou de SalonSync, dit dans le salon vise
+			lineClass = "error";
+			content = html`${translateError(msg.command, msg.params[msg.params.length - 1])}`;
 			break;
 		// MONITOR messages are only displayed in user buffers
 		case irc.RPL_MONONLINE:
