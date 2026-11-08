@@ -48,8 +48,8 @@ const ICONS = {
 		"M3.5 6h13.5v13.5H3.5z", "M17 9.5h3.5v7.6a2.4 2.4 0 01-3.5 2.1",
 		"M6.5 9.5h7.5", "M6.5 12.8h7.5", "M6.5 16h4.5",
 	],
-	// Une urne et son bulletin coche (D-066)
-	ballot: ["M4 11h16v9H4z", "M8.5 11V4.2h7V11", "M10.4 7.6l1.2 1.2 2-2.4", "M9 15h6"],
+	// Un triangle simple, pour #politique (D-071, lot 4e ; avant, une urne)
+	triangle: ["M12 4.4l8.6 15H3.4z"],
 	desktop: ["M3.5 5.2h17v11.2h-17z", "M9.2 20.2h5.6", "M12 16.4v3.8"],
 	music: [
 		"M9.6 17.2a2.8 2.8 0 11-5.6 0 2.8 2.8 0 015.6 0z",
@@ -86,7 +86,7 @@ const ICONES_SALONS = {
 	aide: "lifebuoy",
 	abus: "flag",
 	actualite: "news",
-	politique: "ballot",
+	politique: "triangle",
 	informatique: "desktop",
 	musique: "music",
 	cinema: "movie",
