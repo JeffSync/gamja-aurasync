@@ -240,9 +240,16 @@ export default function BufferList(props) {
 				onToggle=${handleToggle}
 			>
 				<summary class="chan-group-title">
-					<span>${cat.label}</span>
-					<span class="chan-group-count ${cache ? "a-lire" : ""}">${groups.get(cat.id).length}</span>
-					${total}
+					<span class="chan-group-label"
+						><span class="aura" aria-hidden="true">${cat.label}</span
+						><span class="texte">${cat.label}</span
+						><span class="trait" aria-hidden="true"></span
+					></span>
+					<span class="chan-group-meta">
+						<span class="chan-group-count ${cache ? "a-lire" : ""}">${groups.get(cat.id).length}</span>
+						${total}
+						<span class="chan-group-fleche" aria-hidden="true"></span>
+					</span>
 				</summary>
 				<ul role="tablist" aria-label=${cat.label}>
 					${groups.get(cat.id).map(item)}
@@ -264,7 +271,7 @@ export default function BufferList(props) {
 			type="button"
 			onClick=${props.onOpenChannelList}
 			title="Voir tous les salons"
-		>Salons</button>
+		>Liste des salons</button>
 		<div class="chan-groups">
 			${sections}
 		</div>

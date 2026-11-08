@@ -331,8 +331,8 @@ test("barre : point gris pour le non-lu, badge rose pour une mention ou un messa
 	let total = declsTheme(".chan-group-total");
 	assert.equal(total.get("display"), "none");
 	auMoins(couleur(total.get("color")).rgb, sur(total.get("background-color"), FOND_BARRE), 4.5, "total d'une categorie");
-	assert.equal(ETAT(".chan-group:not([open]) > .chan-group-title > .chan-group-total", "display"), "inline-block");
-	assert.equal(ETAT(".chan-group:not([open]) > .chan-group-title > .chan-group-count.a-lire", "display"), "none");
+	assert.equal(ETAT(".chan-group:not([open]) > .chan-group-title .chan-group-total", "display"), "inline-block");
+	assert.equal(ETAT(".chan-group:not([open]) > .chan-group-title .chan-group-count.a-lire", "display"), "none");
 	assert.equal(resoudre(ETAT(".chan-group-total.pour-toi", "background-color")), "#f472b6");
 	// Pastille de ☰
 	let pastille = declsTheme(".pastille-pour-toi");

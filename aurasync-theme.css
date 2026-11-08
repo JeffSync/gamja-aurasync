@@ -326,28 +326,31 @@ button:active {
 
 /* ── Barre laterale : salons par categorie ───────────────────────────── */
 
+/* « Liste des salons » : le meme encadrement en degrade que le logo, juste
+   au-dessus (D-066, note du 8 novembre au soir) */
 #chan-browse {
 	display: flex;
-	background: transparent;
 	font-family: inherit;
-	width: calc(100% - 16px);
+	width: calc(100% - 20px);
 	cursor: pointer;
 	align-items: center;
 	justify-content: center;
 	gap: 7px;
-	margin: 0 8px 4px;
+	margin: 0 10px 6px;
 	padding: 8px 10px;
-	border: 1px solid rgba(34, 211, 238, 0.32);
-	border-radius: 8px;
+	border: 1.5px solid transparent;
+	border-radius: 12px;
+	background:
+		linear-gradient(var(--aura-bg-soft), var(--aura-bg-soft)) padding-box,
+		linear-gradient(120deg, var(--aura-cyan), var(--aura-violet)) border-box;
 	color: var(--aura-cyan);
 	font-size: 13px;
-	font-weight: 500;
+	font-weight: 600;
 	text-decoration: none;
-	transition: background 0.16s ease, border-color 0.16s ease;
+	transition: filter 0.18s ease;
 }
 #chan-browse:hover {
-	background: rgba(34, 211, 238, 0.10);
-	border-color: var(--aura-cyan);
+	filter: brightness(1.15);
 }
 
 .chan-groups {
@@ -367,21 +370,67 @@ button:active {
 	padding: 2px 6px 6px 0;
 }
 
+/* Titres de groupe centres, au style des titres de bloc du site (D-066,
+   note du 8 novembre au soir) : degrade cyan -> violet, legere aura (une
+   copie du texte derriere lui, en text-shadow : une ombre sur un texte en
+   degrade le salirait), petit trait dessous. Petits, pour rester discrets a
+   cote des salons, qui restent alignes a gauche. Le compteur et la fleche de
+   repli a droite : trois colonnes, la premiere vide de la largeur de la
+   troisieme, pour que le titre soit au centre. */
 .chan-group-title {
-	display: flex;
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
 	align-items: center;
-	justify-content: space-between;
 	gap: 6px;
-	padding: 9px 10px 5px;
+	padding: 10px 10px 5px;
 	color: var(--aura-text-dim);
 	font-family: var(--aura-font-display);
-	font-size: 11px;
-	font-weight: 600;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
+	font-size: 12.5px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
 	cursor: pointer;
 	user-select: none;
 	list-style: none;
+}
+.chan-group-label {
+	grid-column: 2;
+	position: relative;
+	isolation: isolate;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+}
+.chan-group-label .texte {
+	background: linear-gradient(95deg, #67e8f9, #a78bfa);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+.chan-group-label .aura {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: -1;
+	color: transparent;
+	text-shadow: 0 0 8px rgba(34, 211, 238, 0.45), 0 0 16px rgba(139, 92, 246, 0.3);
+	pointer-events: none;
+}
+.chan-group-label .trait {
+	display: block;
+	width: 34px;
+	height: 1px;
+	margin-top: 3px;
+	background: linear-gradient(90deg, transparent, var(--aura-cyan) 35%, var(--aura-violet) 70%, transparent);
+	box-shadow: 0 0 4px rgba(34, 211, 238, 0.45);
+}
+.chan-group-meta {
+	grid-column: 3;
+	justify-self: end;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 }
 .chan-group-title::-webkit-details-marker {
 	display: none;
@@ -389,8 +438,7 @@ button:active {
 .chan-group-title:hover {
 	color: var(--aura-text-soft);
 }
-.chan-group-title::after {
-	content: "";
+.chan-group-fleche {
 	width: 6px;
 	height: 6px;
 	border-right: 1.6px solid currentColor;
@@ -399,7 +447,7 @@ button:active {
 	transition: transform 0.16s ease;
 	flex-shrink: 0;
 }
-.chan-group[open] > .chan-group-title::after {
+.chan-group[open] > .chan-group-title .chan-group-fleche {
 	transform: rotate(-135deg) translate(-2px, -2px);
 }
 .chan-group-count {
@@ -584,10 +632,10 @@ button:active {
 	line-height: 17px;
 	text-align: center;
 }
-.chan-group:not([open]) > .chan-group-title > .chan-group-total {
+.chan-group:not([open]) > .chan-group-title .chan-group-total {
 	display: inline-block;
 }
-.chan-group:not([open]) > .chan-group-title > .chan-group-count.a-lire {
+.chan-group:not([open]) > .chan-group-title .chan-group-count.a-lire {
 	display: none;
 }
 
