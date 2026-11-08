@@ -212,3 +212,20 @@ test("tiroir mobile : « Réglages » joignable sans l'ouvrir ; sur ordinateur, 
 	// Le tiroir s'ouvre sur la meme tete de colonne
 	assert.match(APP, /id="member-list"[\s\S]*?id="member-list-header"[\s\S]*?TeteColonne/);
 });
+
+test("retouche de 23 h : la croix posee dans le bandeau du sujet, sans fond au repos", () => {
+	let bloc = (sel) => THEME.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + " \\{([^}]*)\\}"))[1];
+	let repos = bloc("#buffer-header .actions button.hdr-quitter");
+	assert.match(repos, /background: transparent;/);
+	assert.match(repos, /border: 1px solid transparent;/);
+	let survol = bloc("#buffer-header .actions button.hdr-quitter:hover,\n#buffer-header .actions button.hdr-quitter:focus-visible");
+	assert.match(survol, /background: rgba/);
+	assert.match(survol, /border-color: rgba/);
+	// Ordinateur : le sujet couvre toute la largeur et garde la place de la
+	// croix, posee dans la meme case
+	let desc = bloc("#buffer-header:has(.hdr-quitter) .description");
+	assert.match(desc, /grid-column: 1 \/ -1;/);
+	assert.match(desc, /padding-right: 56px;/);
+	let actions = bloc("#buffer-header:has(.hdr-quitter) .actions");
+	assert.match(actions, /grid-column: 1 \/ -1;[\s\S]*justify-self: end;[\s\S]*align-self: center;/);
+});

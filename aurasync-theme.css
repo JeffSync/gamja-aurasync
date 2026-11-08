@@ -2445,7 +2445,10 @@ ul.switcher-list li a.selected {
 	color: var(--aura-cyan);
 }
 
-/* La croix « Quitter #salon », a la place de « Partir » : 32 px au moins */
+/* La croix « Quitter #salon », a la place de « Partir » : 32 px au moins.
+   Retouche du 8 novembre, 23 h (D-066) : posee dans le bandeau du sujet, sur
+   son fond ; sans fond au repos, un leger fond et un contour au survol et au
+   focus. */
 #buffer-header .actions button.hdr-quitter {
 	display: inline-flex;
 	align-items: center;
@@ -2454,6 +2457,36 @@ ul.switcher-list li a.selected {
 	min-width: 32px;
 	min-height: 32px;
 	padding: 0;
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	color: var(--aura-text-soft);
+}
+#buffer-header .actions button.hdr-quitter:hover,
+#buffer-header .actions button.hdr-quitter:focus-visible {
+	background: rgba(239, 68, 68, 0.14);
+	border-color: rgba(248, 113, 113, 0.45);
+	color: #fecaca;
+	transform: none;
+}
+/* Sur ordinateur, le sujet couvre toute la largeur de l'en-tete et garde la
+   place de la croix a droite : un sujet long passe a la ligne avant elle.
+   La croix se pose dans la meme case, au-dessus, centree sur le texte. */
+@media (min-width: 768px) {
+	#buffer-header:has(.hdr-quitter) .description {
+		grid-row: 1 / 3;
+		grid-column: 1 / -1;
+		padding-right: 56px;
+	}
+	#buffer-header:has(.hdr-quitter) .actions {
+		grid-row: 1 / 3;
+		grid-column: 1 / -1;
+		justify-self: end;
+		align-self: center;
+		position: relative;
+		z-index: 1;
+		margin-right: 14px;
+	}
 }
 .hdr-quitter svg {
 	width: 17px;
