@@ -438,11 +438,11 @@ test("icones : une seule variable bascule entre les deux variantes", () => {
 	assert.equal(declsTheme(".chan-icon").get("width"), "20px");
 });
 
-test("icones : traces de pulse, triangle et ball, une icone par salon", () => {
+test("icones : traces de pulse, triangle, trophy et chain, une icone par salon", () => {
 	channels.setCatalogue(lireCatalogue({
 		categories: [
 			{ id: "principaux", label: "Salons principaux", channels: [{ name: "#AuraSync" }, { name: "#aide" }] },
-			{ id: "thematiques", label: "Thématiques", channels: [{ name: "#politique" }, { name: "#sports" }, { name: "#cinéma" }] },
+			{ id: "thematiques", label: "Thématiques", channels: [{ name: "#politique" }, { name: "#sports" }, { name: "#cinéma" }, { name: "#addictions" }] },
 			{ id: "regions", label: "Régions", channels: [{ name: "#bretagne" }, { name: "#île-de-france" }] },
 		],
 		selection: [],
@@ -450,19 +450,20 @@ test("icones : traces de pulse, triangle et ball, une icone par salon", () => {
 	let icone = (n) => channels.channelMeta(n).icon;
 	assert.equal(icone("#AuraSync"), "pulse");
 	assert.equal(icone("#politique"), "triangle");
-	assert.equal(icone("#sports"), "ball");
+	assert.equal(icone("#sports"), "trophy");
+	assert.equal(icone("#addictions"), "chain");
 	assert.equal(icone("#cinéma"), "movie");
 	assert.equal(icone("#aide"), "lifebuoy");
 	assert.equal(icone("#bretagne"), "pin");
 	assert.equal(icone("#île-de-france"), "pin");
 	assert.equal(icone("#administration"), "shield");
-	for (let nom of ["pulse", "triangle", "ball"]) {
+	for (let nom of ["pulse", "triangle", "trophy", "chain"]) {
 		assert.ok(channels.ICONS[nom].length > 0);
 		for (let d of channels.ICONS[nom]) {
 			assert.match(d, /^M[\d.\s,a-zA-Z-]+$/);
 		}
 	}
-	for (let ancien of ["home", "columns", "trophy", "ballot"]) {
+	for (let ancien of ["home", "columns", "ballot", "ball", "hands"]) {
 		assert.equal(channels.ICONS[ancien], undefined, `${ancien} n'est plus utilisee`);
 	}
 	channels.setCatalogue(null);

@@ -61,15 +61,18 @@ const ICONS = {
 		"M8 9.4h8a4.4 4.4 0 014.4 4.4v.9a2.9 2.9 0 01-5.5 1.3l-.5-1H9.6l-.5 1a2.9 2.9 0 01-5.5-1.3v-.9A4.4 4.4 0 018 9.4z",
 		"M7.4 12v2.4", "M6.2 13.2h2.4", "M16 13.2h.02",
 	],
-	// Un ballon a coutures (D-066)
-	ball: [
-		"M12 20.4a8.4 8.4 0 100-16.8 8.4 8.4 0 000 16.8z",
-		"M12 8.8l3 2.2-1.1 3.6h-3.8L9 11z",
-		"M12 3.6v5.2", "M15 11l4.9-1.6", "M13.9 14.6l3 4.2", "M10.1 14.6l-3 4.2", "M9 11L4.1 9.4",
+	// Une coupe, pour #sports (D-071, lot 4f ; avant, un ballon)
+	trophy: [
+		"M7.5 4.5h9v4.8a4.5 4.5 0 01-9 0z",
+		"M7.5 6.2H5.2v1.2a2.8 2.8 0 002.7 2.8", "M16.5 6.2h2.3v1.2a2.8 2.8 0 01-2.7 2.8",
+		"M12 13.8v3.2", "M10.2 17h3.6", "M8.5 19.6h7",
 	],
-	hands: [
-		"M12 19.8s-5.6-3.6-5.6-7.6A3.4 3.4 0 0112 9.4a3.4 3.4 0 015.6 2.8c0 4-5.6 7.6-5.6 7.6z",
-		"M12 4.4v2.6", "M8.4 5.6l1 2.2", "M15.6 5.6l-1 2.2",
+	// Une chaine brisee, pour #addictions : deux maillons qui se separent,
+	// aucune substance designee (D-071, lot 4f ; avant, des mains)
+	chain: [
+		"M5.6 9.2h1.6a2.8 2.8 0 010 5.6H5.6a2.8 2.8 0 010-5.6z",
+		"M16.8 9.2h1.6a2.8 2.8 0 010 5.6h-1.6a2.8 2.8 0 010-5.6z",
+		"M12 5.4v2.4", "M12 16.2v2.4", "M14.6 6.4l-1 1.4", "M9.4 17.6l1-1.4",
 	],
 	spark: ["M12 3.4l2.1 5.3 5.3 2.1-5.3 2.1-2.1 5.3-2.1-5.3L4.6 10.8l5.3-2.1z", "M18.4 16.6l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"],
 	pin: ["M12 20.8s5.9-5.8 5.9-10a5.9 5.9 0 10-11.8 0c0 4.2 5.9 10 5.9 10z", "M12 13.1a2.3 2.3 0 100-4.6 2.3 2.3 0 000 4.6z"],
@@ -91,8 +94,8 @@ const ICONES_SALONS = {
 	musique: "music",
 	cinema: "movie",
 	jeux: "gamepad",
-	sports: "ball",
-	addictions: "hands",
+	sports: "trophy",
+	addictions: "chain",
 	spiritualite: "spark",
 };
 const ICONES_CATEGORIES = { regions: "pin" };
