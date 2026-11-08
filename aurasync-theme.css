@@ -2492,3 +2492,18 @@ ul.switcher-list li a.selected {
 	width: 17px;
 	height: 17px;
 }
+
+/* ── Icones des salons plus grandes (D-066, retouche du 8 novembre, 23 h) ── */
+/* Barre laterale : 20 -> 26 px, un trait un peu plus epais. La ligne du nom
+   garde ses 20 px : l'icone deborde de 3 px en haut et en bas, centree sur
+   la premiere ligne ; un nom long passe a la ligne sous le nom. L'avatar
+   d'un message prive garde 20 px, dans la meme largeur de 26 px. */
+#buffer-list li a .chan-icon {
+	width: 26px;
+	height: 26px;
+	margin: -3px 0;
+	stroke-width: 2.1;
+}
+#buffer-list li a .fiche-avatar-20 {
+	margin: 0 3px;
+}

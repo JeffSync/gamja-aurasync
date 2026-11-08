@@ -229,3 +229,15 @@ test("retouche de 23 h : la croix posee dans le bandeau du sujet, sans fond au r
 	let actions = bloc("#buffer-header:has(.hdr-quitter) .actions");
 	assert.match(actions, /grid-column: 1 \/ -1;[\s\S]*justify-self: end;[\s\S]*align-self: center;/);
 });
+
+test("retouche de 23 h : icones des salons en 26 px dans la barre, l'avatar dans la meme largeur", () => {
+	let bloc = (sel) => THEME.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + " \\{([^}]*)\\}"))[1];
+	let icone = bloc("#buffer-list li a .chan-icon");
+	assert.match(icone, /width: 26px;/);
+	assert.match(icone, /height: 26px;/);
+	assert.match(icone, /margin: -3px 0;/, "centree sur la premiere ligne du nom (20 px)");
+	assert.match(bloc("#buffer-list li a .fiche-avatar-20"), /margin: 0 3px;/);
+	// Le nom passe a la ligne sous le nom, pas sous l'icone (flex)
+	assert.match(bloc("\n#buffer-list li a"), /display: flex;/);
+	assert.match(bloc("\n.chan-name"), /min-width: 0;[\s\S]*overflow-wrap: anywhere;/);
+});
