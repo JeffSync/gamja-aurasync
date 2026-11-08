@@ -185,6 +185,36 @@ export function salonSensible(name) {
 }
 
 /*
+ * Salon discret (indicateur `discreet` de l'API, D-065, point 11) : sous
+ * 3 personnes, on dit « moins de 3 », jamais le chiffre. Sans l'indicateur
+ * (catalogue pas lu, API plus ancienne), #abus et #addictions le restent.
+ */
+const DISCRETS = new Set(["abus", "addictions"]);
+export function salonDiscret(name) {
+	if (typeof name !== "string") {
+		return false;
+	}
+	if (catalogue && catalogue.discretServi) {
+		let salon = catalogue.salons.get(cleCatalogue(name));
+		return Boolean(salon && salon.discreet);
+	}
+	return DISCRETS.has(iconKey(name));
+}
+
+/*
+ * Nombre de personnes d'un salon, en tete de la colonne (D-066, note du
+ * 8 novembre au soir) : { texte, label }. Le texte est court, a cote de
+ * l'icone de profil ; le libelle est la phrase entiere, pour les lecteurs
+ * d'ecran. Salon discret sous 3 : « moins de 3 personnes ».
+ */
+export function comptePersonnes(name, nombre) {
+	if (salonDiscret(name) && nombre < 3) {
+		return { texte: "< 3", label: "moins de 3 personnes" };
+	}
+	return { texte: String(nombre), label: `${nombre} personne${nombre > 1 ? "s" : ""}` };
+}
+
+/*
  * Lettres verrouillees d'un salon selon le catalogue (D-068, point 2), ou
  * null : salon hors catalogue, catalogue pas encore lu, ou API qui ne sert
  * pas le champ. Le 742 du serveur complete en direct (buf.verrous).

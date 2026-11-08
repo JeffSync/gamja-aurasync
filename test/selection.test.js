@@ -144,6 +144,10 @@ test("lireCatalogue : catégories, salons par clé, rang, sélection", () => {
 	assert.equal(lu.salons.get("#jeux").sensible, false);
 	assert.equal(lu.salons.get("#aide").sensible, false, "absent : faux");
 	assert.equal(lu.sensibleServi, true);
+	// D-065, point 11 : l'indicateur discret (« moins de 3 personnes »)
+	assert.equal(lu.salons.get("#abus").discreet, true);
+	assert.equal(lu.salons.get("#jeux").discreet, false);
+	assert.equal(lu.discretServi, true);
 	// API anterieure a D-066 : aucun indicateur servi
 	let ancienne = lireCatalogue({ categories: [{ id: "a", label: "A", channels: [{ name: "#abus" }] }], selection: [] });
 	assert.equal(ancienne.sensibleServi, false);
@@ -153,7 +157,7 @@ test("lireCatalogue : catégories, salons par clé, rang, sélection", () => {
 	}
 	assert.deepEqual(lireCatalogue({ categories: [], selection: ["#aide", 3, null] }).selection, ["#aide"]);
 	let sansDrapeaux = lireCatalogue({ categories: [{ id: "a", label: "A", channels: [{ name: "#x" }] }], selection: [] });
-	assert.deepEqual(sansDrapeaux.salons.get("#x"), { name: "#x", label: "#x", display: "#x", category: "a", rang: 0, fixed: false, remember: true, sensible: false, locked: null });
+	assert.deepEqual(sansDrapeaux.salons.get("#x"), { name: "#x", label: "#x", display: "#x", category: "a", rang: 0, fixed: false, remember: true, sensible: false, discreet: false, locked: null });
 	// D-068 : les verrous, lettres seules ; null si absents ou mal formes
 	let salonsVerrous = [{ name: "#x", locked: "PntfHiklsDQ" }, { name: "#y", locked: "+n" }, { name: "#z", locked: 3 }];
 	let verrous = lireCatalogue({ categories: [{ id: "a", label: "A", channels: salonsVerrous }], selection: [] });

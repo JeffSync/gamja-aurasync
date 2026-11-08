@@ -86,8 +86,9 @@ export default class SalonReglages extends Component {
 	}
 
 	handleOutside(event) {
-		// Le bouton de l'en-tete ouvre et ferme lui-meme
-		if (event.target.closest && event.target.closest(".hdr-reglages")) {
+		// Les boutons « Réglages » (tete de colonne, en-tete mobile) ouvrent
+		// et ferment eux-memes
+		if (event.target.closest && event.target.closest(".hdr-reglages, .tete-reglages")) {
 			return;
 		}
 		if (this.base && !this.base.contains(event.target)) {
@@ -113,13 +114,17 @@ export default class SalonReglages extends Component {
 		let s = etatSujet(this.state.saisie, sujet, topicLen);
 		let lignes = lignesReglages(modes, verrous, rang);
 
-		let top = 64;
-		let entete = typeof document !== "undefined" && document.getElementById("buffer-header");
-		if (entete) {
-			top = Math.round(entete.getBoundingClientRect().bottom) + 6;
-		}
-		// Sur ordinateur, sous l'en-tete ; sur mobile, la feuille du bas
+		// Sur ordinateur, sous la tete de la colonne des personnes, ou est le
+		// bouton (sinon sous l'en-tete) ; sur mobile, la feuille du bas
 		// l'ignore (aurasync-theme.css)
+		let top = 64;
+		if (typeof document !== "undefined") {
+			let tete = document.getElementById("member-list-header");
+			let ancre = tete && tete.getClientRects().length ? tete : document.getElementById("buffer-header");
+			if (ancre) {
+				top = Math.round(ancre.getBoundingClientRect().bottom) + 6;
+			}
+		}
 		let style = `--reglages-top:${top}px;`;
 
 		let compteur = `${s.octets} / ${s.max} octets`;

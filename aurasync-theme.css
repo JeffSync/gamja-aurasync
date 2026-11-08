@@ -2388,3 +2388,74 @@ ul.switcher-list li a.selected {
 		font-size: 16px;
 	}
 }
+
+/* ── Colonne des personnes et en-tete du salon (D-066, note du 8 novembre
+   au soir) ─────────────────────────────────────────────────────────────── */
+/* En tete de colonne : icone de profil et nombre, « Réglages » colle a cote
+   (% et @). Sur ordinateur, l'en-tete du salon ne garde que le sujet et la
+   croix : son bouton « Réglages » ne sert que sur mobile. */
+@media (min-width: 768px) {
+	.hdr-reglages {
+		display: none;
+	}
+}
+.tete-colonne {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.tete-compte {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	color: var(--aura-text-soft);
+	font-size: 0.85rem;
+	font-weight: 600;
+}
+.tete-compte svg {
+	width: 17px;
+	height: 17px;
+	color: var(--aura-cyan);
+}
+.tete-reglages {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	min-height: 32px;
+	padding: 4px 9px;
+	border: 1px solid rgba(34, 211, 238, 0.45);
+	border-radius: 8px;
+	background: rgba(34, 211, 238, 0.08);
+	color: var(--aura-text);
+	font-family: inherit;
+	font-size: 12.5px;
+	cursor: pointer;
+}
+.tete-reglages:hover,
+.tete-reglages.ouvert {
+	background: rgba(34, 211, 238, 0.18);
+}
+.tete-reglages:focus-visible {
+	outline: 2px solid var(--aura-cyan);
+	outline-offset: 1px;
+}
+.tete-reglages svg {
+	width: 16px;
+	height: 16px;
+	color: var(--aura-cyan);
+}
+
+/* La croix « Quitter #salon », a la place de « Partir » : 32 px au moins */
+#buffer-header .actions button.hdr-quitter {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	align-self: center;
+	min-width: 32px;
+	min-height: 32px;
+	padding: 0;
+}
+.hdr-quitter svg {
+	width: 17px;
+	height: 17px;
+}

@@ -4,7 +4,7 @@ import { strip as stripANSI } from "../lib/ansi.js";
 import { BufferType, ServerStatus, getServerName } from "../state.js";
 import * as irc from "../lib/irc.js";
 import { libellePourToi } from "../lib/pour-toi.js";
-import { channelDisplay } from "./aurasync-channels.js";
+import { channelDisplay, comptePersonnes } from "./aurasync-channels.js";
 
 const UserStatus = {
 	HERE: "here",
@@ -73,12 +73,22 @@ export default function BufferHeader(props) {
 		}
 		if (props.buffer.joined) {
 			if (props.canPart) {
+				// D-066, note du 8 novembre au soir : une croix, a la place
+				// de « Partir » ; meme geste (la selection suit, D-065)
+				let quitter = `Quitter ${channelDisplay(props.buffer.name)}`;
 				actions.push(html`
 					<button
 						key="part"
-						class="danger"
+						class="danger hdr-quitter"
 						onClick=${props.onClose}
-					>Partir</button>
+						aria-label=${quitter}
+						title=${quitter}
+					>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+							<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>
+						</svg>
+					</button>
 				`);
 			}
 		} else {
@@ -199,7 +209,10 @@ export default function BufferHeader(props) {
 
 	// D-068 : le menu « Réglages », pour % et @ du salon seulement (le +
 	// et un oper sans rang n'ont rien). app.js passe `rang` d'apres la place
-	// de la personne dans buf.members.
+	// de la personne dans buf.members. Depuis la note du 8 novembre au soir
+	// (D-066), il est en tete de la colonne des personnes (tete-colonne.js) ;
+	// celui-ci ne sert plus que sur mobile, ou la colonne est un tiroir
+	// (masque sur ordinateur, aurasync-theme.css).
 	let reglagesToggle = null;
 	if (props.buffer.type === BufferType.CHANNEL && props.rang) {
 		reglagesToggle = html`
@@ -221,14 +234,17 @@ export default function BufferHeader(props) {
 		`;
 	}
 
+	// Mobile seulement (.hdr-toggle) : ouvre le tiroir des personnes. Le
+	// nombre suit la regle des salons discrets (D-065).
 	let memberToggle = null;
 	if (props.buffer.type === BufferType.CHANNEL && props.memberCount !== undefined) {
+		let compte = comptePersonnes(props.buffer.name, props.memberCount);
 		memberToggle = html`
 			<button
 				class="hdr-toggle hdr-toggle-right"
 				type="button"
 				onClick=${props.onToggleMemberList}
-				aria-label="Personnes du salon"
+				aria-label=${`Personnes du salon : ${compte.label}`}
 				title="Personnes du salon"
 			>
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -238,7 +254,7 @@ export default function BufferHeader(props) {
 					<path d="M16.5 10.8a2.6 2.6 0 100-5.2"/>
 					<path d="M16.8 14.9c2.4.4 3.9 2 3.9 4.6"/>
 				</svg>
-				<span>${props.memberCount}</span>
+				<span aria-hidden="true">${compte.texte}</span>
 			</button>
 		`;
 	}

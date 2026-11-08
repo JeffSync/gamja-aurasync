@@ -5,6 +5,7 @@ import Buffer from "./buffer.js";
 import BufferList from "./buffer-list.js";
 import BufferHeader from "./buffer-header.js";
 import MemberList from "./member-list.js";
+import TeteColonne from "./tete-colonne.js";
 import JoinForm from "./join-form.js";
 import Help from "./help.js";
 import NetworkForm from "./network-form.js";
@@ -3201,17 +3202,18 @@ export default class App extends Component {
 			`;
 		}
 
+		// D-068 : % ou @ du salon actif, d'apres buf.members ; pour l'en-tete
+		// (mobile) et la tete de la colonne des personnes
+		let rang = null;
+		if (activeBuffer && activeBuffer.type === BufferType.CHANNEL && activeBuffer.members && activeClient) {
+			rang = rangSalon(activeBuffer.members.get(activeClient.nick));
+		}
+
 		let bufferHeader = null;
 		if (activeBuffer) {
 			let activeUser = null;
 			if (activeBuffer.type === BufferType.NICK) {
 				activeUser = activeServer.users.get(activeBuffer.name);
-			}
-
-			// D-068 : % ou @ du salon actif, d'apres buf.members
-			let rang = null;
-			if (activeBuffer.type === BufferType.CHANNEL && activeBuffer.members && activeClient) {
-				rang = rangSalon(activeBuffer.members.get(activeClient.nick));
 			}
 
 			bufferHeader = html`
@@ -3259,7 +3261,13 @@ export default class App extends Component {
 					</button>
 					<section>
 						<section id="member-list-header">
-							${activeBuffer.members.size} personne${activeBuffer.members.size > 1 ? "s" : ""}
+							<${TeteColonne}
+								name=${activeBuffer.name}
+								nombre=${activeBuffer.members.size}
+								rang=${rang}
+								reglagesOuverts=${Boolean(this.state.reglages)}
+								onToggleReglages=${this.toggleReglages}
+							/>
 						</section>
 						<${MemberList}
 							members=${activeBuffer.members}

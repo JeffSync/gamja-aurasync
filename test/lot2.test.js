@@ -401,7 +401,9 @@ test("fil : ligne de mention, ton pseudo dans <mark>, l'auteur sans marque ; la 
 });
 
 test("liste des présents : « 1 personne », « 2 personnes », plus « Utilisateurs »", () => {
+	// Depuis le lot 4g, la tete de colonne (tete-colonne.js) : le libelle
+	// vient de comptePersonnes, teste dans tete-colonne.test.js
 	let source = readFileSync(new URL("../components/app.js", import.meta.url), "utf8");
-	assert.match(source, /\$\{activeBuffer\.members\.size\} personne\$\{activeBuffer\.members\.size > 1 \? "s" : ""\}/);
+	assert.match(source, /<\$\{TeteColonne\}[\s\S]*?nombre=\$\{activeBuffer\.members\.size\}/);
 	assert.doesNotMatch(source, /Utilisateur\$\{/);
 });
