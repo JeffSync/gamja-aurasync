@@ -146,14 +146,10 @@ test("anneau et @pseudo : av-aura et handle-grad du site, à l'identique", { ski
 			assert.equal(fork[k], v, sel + " { " + k + " }");
 		}
 	}
-	for (let anim of ["av-pulse", "av-spin"]) {
-		let re = new RegExp("@keyframes " + anim + " \\{[^\\n]*\\}");
-		assert.equal(re.exec(THEME)[0], re.exec(site)[0], anim);
-	}
 });
 
-test("anneau : arrêté si le système demande moins d'animations ; hors du flux, il ne pousse rien", () => {
-	assert.match(THEME, /@media \(prefers-reduced-motion: reduce\) \{\n\t\.av-aura::before, \.av-aura::after \{ animation: none; \}\n\}/);
+test("anneau : figé, comme sur le site hors de la carte du profil ; hors du flux, il ne pousse rien", () => {
+	assert.doesNotMatch(THEME, /av-pulse|av-spin/, "aucune animation de l'anneau dans le t'Chat");
 	for (let sel of [".av-aura::before", ".av-aura::after"]) {
 		let d = declarations(THEME, sel);
 		assert.equal(d.position, "absolute", sel);

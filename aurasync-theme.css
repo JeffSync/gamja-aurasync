@@ -1726,8 +1726,10 @@ ul.switcher-list li a.selected {
 	border-top: 1px solid var(--aura-stroke);
 }
 
-/* Aura de l'avatar (anneau conique tournant + halo qui respire) : av-aura
-   du site (apps/web/src/routes/layout.css), memes mesures et couleurs.
+/* Aura de l'avatar (anneau conique + halo) : av-aura du site
+   (apps/web/src/routes/layout.css), memes mesures et couleurs. Figee comme
+   sur le site depuis son lot 3b (anneaux figes, e7daf59) : le site ne
+   l'anime que sur la carte du profil, que le t'Chat n'a pas (D-071, lot 4e).
    Les deux couches sont en position absolue : l'avatar garde ses 64 px et
    rien ne bouge autour. */
 .av-aura { position: relative; display: inline-grid; place-items: center; flex-shrink: 0; }
@@ -1735,7 +1737,7 @@ ul.switcher-list li a.selected {
 .av-aura::before {
 	content: ""; position: absolute; z-index: 0; inset: -14px; border-radius: 50%;
 	background: radial-gradient(circle, rgb(34 211 238 / .42), rgb(139 92 246 / .16) 55%, transparent 72%);
-	filter: blur(7px); animation: av-pulse 4.5s ease-in-out infinite;
+	filter: blur(7px); opacity: .75;
 	pointer-events: none;
 }
 .av-aura::after {
@@ -1743,13 +1745,8 @@ ul.switcher-list li a.selected {
 	background: conic-gradient(from 0deg, #22d3ee, #8b5cf6, #22d3ee);
 	-webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
 	mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
-	filter: drop-shadow(0 0 6px rgb(34 211 238 / .5)); animation: av-spin 9s linear infinite;
+	filter: drop-shadow(0 0 6px rgb(34 211 238 / .5));
 	pointer-events: none;
-}
-@keyframes av-pulse { 0%, 100% { opacity: .5; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.06); } }
-@keyframes av-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-	.av-aura::before, .av-aura::after { animation: none; }
 }
 
 /* Avatars : 64 px dans la fiche, 20 px dans la barre */
