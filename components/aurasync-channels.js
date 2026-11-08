@@ -97,11 +97,12 @@ const ICONES_SALONS = {
 };
 const ICONES_CATEGORIES = { regions: "pin" };
 
-/* Salons de l'equipe : jamais au catalogue de l'API. */
+/* Salons de l'equipe : jamais au catalogue de l'API. Libelle, puis nom
+   d'affichage (D-071), qui ne differe du nom reel que par la casse. */
 const GESTION = {
-	administration: "Administration",
-	equipe: "Équipe",
-	services: "Services",
+	administration: { label: "Administration", display: "#Administration" },
+	equipe: { label: "Équipe", display: "#Équipe" },
+	services: { label: "Services", display: "#Services" },
 };
 
 // Messages prives en tete de la barre (D-066, point 5) : la categorie
@@ -142,8 +143,8 @@ function cleCatalogue(name) {
 }
 
 /*
- * { cat, icon, label, rank } d'un salon connu (catalogue ou equipe), ou
- * null. `rank` suit l'ordre du catalogue dans les salons principaux.
+ * { cat, icon, label, display, rank } d'un salon connu (catalogue ou
+ * equipe), ou null. `rank` suit l'ordre du catalogue dans les salons principaux.
  */
 export function channelMeta(name) {
 	if (typeof name !== "string") {
@@ -156,11 +157,12 @@ export function channelMeta(name) {
 			cat: salon.category,
 			icon: ICONES_SALONS[key] || ICONES_CATEGORIES[salon.category] || "hash",
 			label: salon.label,
+			display: salon.display || salon.name,
 			rank: salon.category === "principaux" ? salon.rang + 1 : undefined,
 		};
 	}
 	if (GESTION[key]) {
-		return { cat: "gestion", icon: ICONES_SALONS[key], label: GESTION[key] };
+		return { cat: "gestion", icon: ICONES_SALONS[key], label: GESTION[key].label, display: GESTION[key].display };
 	}
 	return null;
 }
@@ -190,6 +192,17 @@ export function verrousCatalogue(name) {
 	}
 	let salon = catalogue.salons.get(cleCatalogue(name));
 	return salon && typeof salon.locked === "string" ? salon.locked : null;
+}
+
+/*
+ * Nom d'affichage d'un salon (D-071) : #Aide pour #aide, #Île-de-France
+ * pour #île-de-france. Un salon hors catalogue garde son nom brut. Seul ce
+ * que le t'Chat ecrit lui-meme passe par ici : les lignes du serveur et des
+ * services gardent le nom reel.
+ */
+export function channelDisplay(name) {
+	let meta = channelMeta(name);
+	return meta && meta.display ? meta.display : name;
 }
 
 /* Nom technique -> libelle affiche ; le nom sans « # » s'il est inconnu. */

@@ -8,7 +8,7 @@
  */
 
 import { html, Component } from "../lib/index.js";
-import { channelLabel, channelMeta, channelIcon } from "./aurasync-channels.js";
+import { channelDisplay, channelMeta, channelIcon } from "./aurasync-channels.js";
 
 /* Retire le bandeau 【 … 】 des topics officiels. */
 function shortTopic(topic) {
@@ -32,7 +32,7 @@ function Entry(props) {
 			${channelIcon(meta ? meta.icon : "chat")}
 			<div class="chanlist-main">
 				<div class="chanlist-name">
-					<span class="chan-hash">#</span>${official ? channelLabel(name) : name.replace(/^[#&]+/, "")}
+					<span class="chan-hash">#</span>${(official ? channelDisplay(name) : name).replace(/^[#&]+/, "")}
 				</div>
 				${topic ? html`<div class="chanlist-topic">${topic}</div>` : null}
 			</div>

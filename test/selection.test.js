@@ -153,7 +153,7 @@ test("lireCatalogue : catégories, salons par clé, rang, sélection", () => {
 	}
 	assert.deepEqual(lireCatalogue({ categories: [], selection: ["#aide", 3, null] }).selection, ["#aide"]);
 	let sansDrapeaux = lireCatalogue({ categories: [{ id: "a", label: "A", channels: [{ name: "#x" }] }], selection: [] });
-	assert.deepEqual(sansDrapeaux.salons.get("#x"), { name: "#x", label: "#x", category: "a", rang: 0, fixed: false, remember: true, sensible: false, locked: null });
+	assert.deepEqual(sansDrapeaux.salons.get("#x"), { name: "#x", label: "#x", display: "#x", category: "a", rang: 0, fixed: false, remember: true, sensible: false, locked: null });
 	// D-068 : les verrous, lettres seules ; null si absents ou mal formes
 	let salonsVerrous = [{ name: "#x", locked: "PntfHiklsDQ" }, { name: "#y", locked: "+n" }, { name: "#z", locked: 3 }];
 	let verrous = lireCatalogue({ categories: [{ id: "a", label: "A", channels: salonsVerrous }], selection: [] });
@@ -435,12 +435,12 @@ test("barre latérale : catalogue de l'API, icônes du t'Chat, salons de l'équi
 	assert.equal(channels.channelLabel("#île-de-france"), "île-de-france", "avant lecture : le nom, sans #");
 	channels.setCatalogue(lireCatalogue(reponseApi([])));
 	assert.deepEqual(channels.categories().map((c) => c.label), ["Messages privés", "Gestion", "Salons principaux", "Thématiques", "Régions", "Autres"]);
-	assert.deepEqual(channels.channelMeta("#jeux"), { cat: "thematiques", icon: "gamepad", label: "Jeux", rank: undefined });
-	assert.deepEqual(channels.channelMeta("#Abus"), { cat: "principaux", icon: "flag", label: "Abus", rank: 3 });
+	assert.deepEqual(channels.channelMeta("#jeux"), { cat: "thematiques", icon: "gamepad", label: "Jeux", display: "#jeux", rank: undefined });
+	assert.deepEqual(channels.channelMeta("#Abus"), { cat: "principaux", icon: "flag", label: "Abus", display: "#abus", rank: 3 });
 	assert.equal(channels.channelMeta("#île-de-france").icon, "pin");
 	assert.equal(channels.channelMeta("#cinéma").icon, "movie");
 	assert.equal(channels.channelLabel("#île-de-france"), "Île-de-France");
-	assert.deepEqual(channels.channelMeta("#équipe"), { cat: "gestion", icon: "users", label: "Équipe" });
+	assert.deepEqual(channels.channelMeta("#équipe"), { cat: "gestion", icon: "users", label: "Équipe", display: "#Équipe" });
 	assert.equal(channels.channelMeta("#cercle"), null);
 	assert.equal(channels.channelLabel("#cercle"), "cercle");
 	channels.setCatalogue({ pas: "un catalogue" });

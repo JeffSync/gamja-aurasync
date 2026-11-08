@@ -33,7 +33,7 @@ import { translateError, displayError, isRefusal, refusReglageReserve } from "..
 import { isSelfKick, nextBuffer, kickBanner } from "../lib/kick.js";
 import { configAutojoin, connectAutojoin, takeOneShot, buffersToRestore } from "../lib/autojoin.js";
 import { createSelection } from "../lib/selection.js";
-import { setCatalogue, salonSensible, verrousCatalogue } from "./aurasync-channels.js";
+import { channelDisplay, setCatalogue, salonSensible, verrousCatalogue } from "./aurasync-channels.js";
 import { expulsionAuto, cleSalon, noterExpulsion, oublierExpulsion, refusApresExpulsion } from "../lib/sanction-auto.js";
 import { marquerHistorique } from "../lib/historique.js";
 import { commandesSanction, demandeMotif } from "../lib/connexion.js";
@@ -788,7 +788,8 @@ export default class App extends Component {
 
 		let parts = [];
 		if (buf && buf.type !== BufferType.SERVER) {
-			parts.push(buf.name);
+			// D-071 : le nom d'affichage d'un salon, le pseudo d'un message prive
+			parts.push(buf.type === BufferType.CHANNEL ? channelDisplay(buf.name) : buf.name);
 		}
 		if (bouncerNetwork) {
 			parts.push(getServerName(server, bouncerNetwork));

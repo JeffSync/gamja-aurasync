@@ -4,6 +4,7 @@ import { strip as stripANSI } from "../lib/ansi.js";
 import { BufferType, ServerStatus, getServerName } from "../state.js";
 import * as irc from "../lib/irc.js";
 import { libellePourToi } from "../lib/pour-toi.js";
+import { channelDisplay } from "./aurasync-channels.js";
 
 const UserStatus = {
 	HERE: "here",
@@ -165,6 +166,9 @@ export default function BufferHeader(props) {
 	let name = props.buffer.name;
 	if (props.buffer.type === BufferType.SERVER) {
 		name = getServerName(props.server, props.bouncerNetwork);
+	} else if (props.buffer.type === BufferType.CHANNEL) {
+		// D-071 : le nom d'affichage (#Aide) ; un message prive garde le pseudo
+		name = channelDisplay(name);
 	}
 
 	// D-066 : sur ☰, le total des mentions et des messages prives non lus,

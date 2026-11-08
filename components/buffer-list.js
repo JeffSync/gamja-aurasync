@@ -2,7 +2,7 @@ import * as irc from "../lib/irc.js";
 import { strip as stripANSI } from "../lib/ansi.js";
 import { html } from "../lib/index.js";
 import { BufferType, Unread, ServerStatus, getBufferURL } from "../state.js";
-import { categories, channelLabel, channelMeta, channelIcon } from "./aurasync-channels.js";
+import { categories, channelDisplay, channelMeta, channelIcon } from "./aurasync-channels.js";
 import { marqueBarre, totalCategorie } from "../lib/pour-toi.js";
 import { entreeMenu, TEXTES } from "../lib/notifications.js";
 import { avatarDe, trierPrives } from "../lib/fiche.js";
@@ -75,7 +75,7 @@ function BufferItem(props) {
 		break;
 	case BufferType.CHANNEL: {
 		let meta = channelMeta(name);
-		label = html`<span class="chan-hash">#</span>${channelLabel(name)}`;
+		label = html`<span class="chan-hash">#</span>${channelDisplay(name).replace(/^[#&]+/, "")}`;
 		icon = channelIcon(meta ? meta.icon : "hash");
 		break;
 	}
