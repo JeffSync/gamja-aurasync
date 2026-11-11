@@ -74,7 +74,8 @@ test("insigne : les tracés du fork sont ceux de RoleEmblem.svelte (variante rin
 		founder: entre(s, "{#if role === 'founder'}", "{:else}"),
 		administrator: entre(s, "{:else if role === 'administrator'}", "{:else if role === 'operator'}"),
 		operator: entre(s, "{:else if role === 'operator'}", "{:else if role === 'moderator'}"),
-		moderator: entre(s, "{:else if role === 'moderator'}", "{/if}"),
+		// D-073 : « user » suit le Modérateur, dessiné pour l'organigramme du site seul
+		moderator: entre(s, "{:else if role === 'moderator'}", "{:else if role === 'user'}"),
 	};
 	assert.deepEqual(Object.keys(TRACES).sort(), Object.keys(blocs).sort());
 	for (let [role, extrait] of Object.entries(blocs)) {
@@ -88,7 +89,9 @@ test("insigne : les tracés du fork sont ceux de RoleEmblem.svelte (variante rin
 	// Cadre, trait par defaut et roles reconnus
 	assert.match(s, /viewBox=\{ring \? '0 0 56 56'/);
 	assert.equal(parseFloat(/stroke = ([\d.]+)/.exec(s)[1]), TRAIT);
-	assert.deepEqual(JSON.parse(/const known = (\[[^\]]*\])/.exec(s)[1].replace(/'/g, "\"")).sort(), Object.keys(TRACES).sort());
+	// « user » n'a pas d'insigne public : le site ne le dessine que dans l'organigramme
+	let connus = JSON.parse(/const known = (\[[^\]]*\])/.exec(s)[1].replace(/'/g, "\"")).filter((r) => r !== "user");
+	assert.deepEqual(connus.sort(), Object.keys(TRACES).sort());
 });
 
 test("insigne : libellés de roles.ts et teintes du profil du site", { skip: absent }, () => {

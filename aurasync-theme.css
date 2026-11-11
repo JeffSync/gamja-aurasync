@@ -2503,6 +2503,8 @@ ul.switcher-list li a.selected {
 	height: 26px;
 	margin: -3px 0;
 	stroke-width: 2.1;
+	/* Trait commun, dont une icone prend une fraction (ICON_TRAITS, D-073) */
+	--epaisseur-icone: 2.1px;
 }
 #buffer-list li a .fiche-avatar-20 {
 	margin: 0 3px;
