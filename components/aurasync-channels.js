@@ -121,7 +121,9 @@ const ICON_TRAITS = {
 
 function traitIcone(iconName, i) {
 	let t = ICON_TRAITS[iconName];
-	if (t === undefined) return 1;
+	if (t === undefined) {
+		return 1;
+	}
 	return typeof t === "number" ? t : (t[i] ?? 1);
 }
 
