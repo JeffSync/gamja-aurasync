@@ -11,7 +11,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { ANNEAU, DEGRADE, LIBELLES, TEINTES, TRACES, TRAIT, insigneDe, valeur } from "../lib/insigne.js";
+import { ANNEAU, CERCLES_ANNEAU, DEGRADE, LIBELLES, PETITS, TEINTES, TRACES, TRAIT, insigneDe, traitDe, valeur } from "../lib/insigne.js";
 
 const racine = process.env.AURASYNC_DEPOT
 	|| path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../aurasync");
@@ -19,7 +19,7 @@ const WEB = path.join(racine, "apps/web/src");
 const EMBLEME = path.join(WEB, "lib/components/icons/RoleEmblem.svelte");
 const absent = existsSync(EMBLEME) ? false : "depot aurasync introuvable (" + racine + ") : AURASYNC_DEPOT=<chemin>";
 
-const BALISES = new Set(["g", "circle", "path", "line", "linearGradient", "stop"]);
+const BALISES = new Set(["g", "circle", "ellipse", "path", "line", "linearGradient", "stop"]);
 
 /* Les balises SVG d'un extrait Svelte, a plat : « <tag a=v …> » et « </tag> ». */
 function jetonsSvelte(extrait) {
@@ -68,29 +68,49 @@ function entre(source, debut, fin) {
 	return source.slice(i + debut.length, j);
 }
 
+/* Un bloc « ange » : [commun] {#if simple} petit {:else} grand {/if}. */
+function variantes(bloc) {
+	let i = bloc.indexOf("{#if simple}");
+	assert.ok(i >= 0, "{#if simple} introuvable");
+	let j = bloc.indexOf("{:else}", i);
+	let k = bloc.indexOf("{/if}", j);
+	let commun = bloc.slice(0, i);
+	return { petit: commun + bloc.slice(i + 12, j), grand: commun + bloc.slice(j + 7, k) };
+}
+
 test("insigne : les tracés du fork sont ceux de RoleEmblem.svelte (variante ring)", { skip: absent }, () => {
 	let s = readFileSync(EMBLEME, "utf8");
+	// Le Fondateur, inchange : la fleur de vie de la variante ring
+	assert.deepEqual(jetonsFork(TRACES.founder), jetonsSvelte(entre(s, "{#if role === 'founder'}", "{:else}")), "tracé de founder");
 	let blocs = {
-		founder: entre(s, "{#if role === 'founder'}", "{:else}"),
 		administrator: entre(s, "{:else if role === 'administrator'}", "{:else if role === 'operator'}"),
 		operator: entre(s, "{:else if role === 'operator'}", "{:else if role === 'moderator'}"),
-		// D-073 : « user » suit le Modérateur, dessiné pour l'organigramme du site seul
-		moderator: entre(s, "{:else if role === 'moderator'}", "{:else if role === 'user'}"),
+		moderator: entre(s, "{:else if role === 'moderator'}", "</svg>"),
 	};
-	assert.deepEqual(Object.keys(TRACES).sort(), Object.keys(blocs).sort());
-	for (let [role, extrait] of Object.entries(blocs)) {
-		assert.deepEqual(jetonsFork(TRACES[role]), jetonsSvelte(extrait), "tracé de " + role);
+	assert.deepEqual(Object.keys(TRACES).sort(), ["founder", ...Object.keys(blocs)].sort());
+	assert.deepEqual(Object.keys(PETITS).sort(), Object.keys(blocs).sort());
+	for (let [role, bloc] of Object.entries(blocs)) {
+		let v = variantes(bloc);
+		assert.deepEqual(jetonsFork(TRACES[role]), jetonsSvelte(v.grand), "tracé de " + role);
+		assert.deepEqual(jetonsFork(PETITS[role]), jetonsSvelte(v.petit), "tracé simplifié de " + role);
 	}
-	// L'anneau et son degrade
-	let anneau = entre(s, "{#if ring}", "{/if}");
+	// L'anneau, son degrade, et ses deux cercles (Fondateur, puis les autres)
+	let anneau = entre(s, "{#if ring}", "{#if role === 'founder'}");
 	let degrade = [ouvrant("linearGradient", { id: DEGRADE.id, ...DEGRADE.attrs }),
 		...DEGRADE.stops.flatMap((st) => [ouvrant("stop", st), "</stop>"]), "</linearGradient>"];
-	assert.deepEqual([...degrade, ...jetonsFork([ANNEAU])], jetonsSvelte(anneau));
-	// Cadre, trait par defaut et roles reconnus
-	assert.match(s, /viewBox=\{ring \? '0 0 56 56'/);
+	let g = { ...ANNEAU, enfants: [CERCLES_ANNEAU.fondateur, CERCLES_ANNEAU.equipe] };
+	assert.deepEqual([...degrade, ...jetonsFork([g])], jetonsSvelte(anneau));
+	// Cadre, trait, version simplifiee et roles reconnus
+	assert.match(s, /ring \? '0 0 56 56'/);
 	assert.equal(parseFloat(/stroke = ([\d.]+)/.exec(s)[1]), TRAIT);
-	// « user » n'a pas d'insigne public : le site ne le dessine que dans l'organigramme
-	let connus = JSON.parse(/const known = (\[[^\]]*\])/.exec(s)[1].replace(/'/g, "\"")).filter((r) => r !== "user");
+	assert.match(s, /simple \? 3\.4 : size >= 80 \? 1\.9 : 2\.4/);
+	assert.match(s, /petit \?\? size < 24/);
+	assert.equal(traitDe("founder", 36), TRAIT);
+	assert.equal(traitDe("operator", 36), 2.4);
+	assert.equal(traitDe("operator", 20), 3.4);
+	assert.match(s, /stroke-linecap="round"\s+stroke-linejoin="round"\s+aria-hidden/);
+	// « user » n'a pas d'insigne public, et ne figure plus dans l'organigramme
+	let connus = JSON.parse(/const known = (\[[^\]]*\])/.exec(s)[1].replace(/'/g, "\""));
 	assert.deepEqual(connus.sort(), Object.keys(TRACES).sort());
 });
 
@@ -107,11 +127,12 @@ test("insigne : libellés de roles.ts et teintes du profil du site", { skip: abs
 	assert.deepEqual(TEINTES, teintes);
 });
 
-test("insigne : rôle inconnu ou « user » sans insigne ; traits du modérateur recalculés", () => {
+test("insigne : rôle inconnu ou « user » sans insigne ; valeurs « {stroke * k} » recalculées", () => {
 	assert.equal(insigneDe("user"), null);
 	assert.equal(insigneDe(null), null);
 	assert.equal(insigneDe("toString"), null);
-	assert.deepEqual(insigneDe("founder"), { role: "founder", libelle: "Fondateur", teinte: "#67e8f9", traces: TRACES.founder });
+	assert.deepEqual(insigneDe("founder"), { role: "founder", libelle: "Fondateur", teinte: "#67e8f9", traces: TRACES.founder, petits: TRACES.founder });
+	assert.equal(insigneDe("operator").petits, PETITS.operator);
 	assert.equal(valeur("{stroke * 1.4}", 2.4), "3.36");
 	assert.equal(valeur("9.5", 2.4), "9.5");
 	for (let l of Object.values(LIBELLES)) {

@@ -282,7 +282,9 @@ test("fiche rendue : avatar 64, nom, @pseudo, insigne du rôle, rang, lien relat
 	assert.equal(svg.props.viewBox, "0 0 56 56");
 	let traces = [...noeuds(svg.props.children)].filter((n) => n && n.type);
 	assert.ok(traces.some((n) => n.type === "circle" && n.props.stroke === "url(#asRingGrad)"), "l'anneau");
-	assert.equal(traces.filter((n) => n.type === "line" && n.props["stroke-width"] === "3.36").length, 4, "la mire du modérateur");
+	assert.ok(traces.some((n) => n.type === "circle" && n.props.r === "26.2"), "l'anneau large des insignes « ange »");
+	assert.equal(traces.filter((n) => n.type === "g" && n.props.transform === "matrix(-1 0 0 1 56 0)").length, 1, "la balance du modérateur, en miroir");
+	assert.equal(svg.props["stroke-width"], 2.4, "trait de l'insigne à 36 px");
 	assert.ok(!traces.some((n) => n.props.href || n.props["xlink:href"]), "aucune ressource externe");
 	assert.doesNotMatch(texte(tout), /gère le salon|modère le salon|a la parole/, "plus de bulle du rang");
 	for (let rang of ["@", "%", "+"]) {

@@ -5,7 +5,7 @@
  */
 
 import { html } from "../lib/index.js";
-import { ANNEAU, DEGRADE, TRAIT, valeur } from "../lib/insigne.js";
+import { ANNEAU, CERCLES_ANNEAU, DEGRADE, traitDe, valeur } from "../lib/insigne.js";
 
 function trace(t, trait) {
 	let attrs = {};
@@ -21,6 +21,9 @@ export default function Insigne(props) {
 	if (!insigne) {
 		return null;
 	}
+	let trait = traitDe(insigne.role, taille);
+	let traces = taille < 24 ? insigne.petits : insigne.traces;
+	let anneau = { ...ANNEAU, enfants: [insigne.role === "founder" ? CERCLES_ANNEAU.fondateur : CERCLES_ANNEAU.equipe] };
 	return html`
 		<svg
 			class="role-emblem with-ring"
@@ -29,7 +32,9 @@ export default function Insigne(props) {
 			viewBox="0 0 56 56"
 			fill="none"
 			stroke="currentColor"
-			stroke-width=${TRAIT}
+			stroke-width=${trait}
+			stroke-linecap="round"
+			stroke-linejoin="round"
 			aria-hidden="true"
 		>
 			<defs>
@@ -37,8 +42,8 @@ export default function Insigne(props) {
 					${DEGRADE.stops.map((s) => html`<stop ...${s}/>`)}
 				</linearGradient>
 			</defs>
-			${trace(ANNEAU, TRAIT)}
-			${insigne.traces.map((t) => trace(t, TRAIT))}
+			${trace(anneau, trait)}
+			${traces.map((t) => trace(t, trait))}
 		</svg>
 	`;
 }
