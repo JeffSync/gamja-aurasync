@@ -98,8 +98,9 @@ test("insigne : libellés de roles.ts et teintes du profil du site", { skip: abs
 	let roles = readFileSync(path.join(WEB, "lib/utils/roles.ts"), "utf8");
 	let libelles = Object.fromEntries([...roles.matchAll(/(\w+): \{ label: '([^']+)'/g)].map((m) => [m[1], m[2]]));
 	assert.deepEqual(LIBELLES, libelles);
-	// emblemTint de /u/[pseudo] : texte 300 de Tailwind
-	let page = readFileSync(path.join(WEB, "routes/u/[pseudo]/+page.svelte"), "utf8");
+	// emblemTint de la carte de profil : texte 300 de Tailwind
+	// D-073 : la carte de profil est un composant, partagé avec l'aperçu
+	let page = readFileSync(path.join(WEB, "lib/components/CarteProfil.svelte"), "utf8");
 	let tint = /emblemTint = \(\{([^}]*)\}/.exec(page)[1];
 	let tailwind300 = { cyan: "#67e8f9", violet: "#c4b5fd", amber: "#fcd34d", emerald: "#6ee7b7" };
 	let teintes = Object.fromEntries([...tint.matchAll(/(\w+): 'text-(\w+)-300'/g)].map((m) => [m[1], tailwind300[m[2]]]));
