@@ -31,9 +31,9 @@ const DEFINITIVES = [
 	["Banned (G-Lined): [Jeff] spam répété (ID: 5f3a) [ID: 1a2b3c]", "Ton accès au t'Chat est suspendu : spam répété"],
 	["Banned (G-Lined): insultes", "Ton accès au t'Chat est suspendu : insultes"],
 	/* GLINE ~account: de l'API a la suspension d'un compte (D-075) */
-	["Banned (G-Lined): Compte suspendu [ID: 4e5f]", "Ton compte est suspendu : le t'Chat t'est fermé pendant ce temps."],
-	["Banned (G-Lined): Compte suspendu", "Ton compte est suspendu : le t'Chat t'est fermé pendant ce temps."],
-	["Banned (G-Lined): Compte banni [ID: 4e60]", "Ton compte est banni : le t'Chat t'est fermé."],
+	["Banned (G-Lined): Compte suspendu [ID: 4e5f]", "Ton compte est suspendu. Tu ne peux pas accéder au t'Chat pour le moment."],
+	["Banned (G-Lined): Compte suspendu", "Ton compte est suspendu. Tu ne peux pas accéder au t'Chat pour le moment."],
+	["Banned (G-Lined): Compte banni [ID: 4e60]", "Ton compte est banni. Tu ne peux plus accéder au t'Chat."],
 	/* Le meme motif dans un autre bannissement, ou prolonge : traduction generique */
 	["Banned (K-Lined): Compte suspendu", "Ton accès au t'Chat est suspendu : Compte suspendu"],
 	["Banned (G-Lined): Compte suspendu pour spam", "Ton accès au t'Chat est suspendu : Compte suspendu pour spam"],

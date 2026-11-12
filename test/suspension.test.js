@@ -24,20 +24,38 @@ const { default: App } = await import("../components/app.js");
 /* La cle de store.autoconnect (store.js, prefixe gamja_) */
 const CLE_STOCK = "gamja_autoconnect";
 
-test("texte : daté si la suspension a une fin, sans date sinon", () => {
+/* Texte A du 12 novembre (D-075) : plus de « le t'Chat t'est fermé ». */
+test("texte : daté si la suspension a une fin, sans date sinon, « banni » si définitive", () => {
 	assert.equal(
 		messageSuspension("2030-11-20T13:30:00.000Z"),
-		"Ton compte est suspendu jusqu'au 20 novembre 2030 à 14:30 : le t'Chat t'est fermé pendant ce temps.",
+		"Ton compte est suspendu jusqu'au 20 novembre 2030 à 14:30. Tu ne peux pas accéder au t'Chat d'ici là.",
 	);
-	assert.equal(messageSuspension(null), "Ton compte est suspendu : le t'Chat t'est fermé pendant ce temps.");
+	assert.equal(messageSuspension(null), "Ton compte est suspendu. Tu ne peux pas accéder au t'Chat pour le moment.");
 	assert.equal(messageSuspension("pas une date"), messageSuspension(null));
-	for (let t of [messageSuspension(null), messageSuspension("2030-01-01T00:00:00Z")]) {
+	assert.equal(messageSuspension(null, true), "Ton compte est banni. Tu ne peux plus accéder au t'Chat.");
+	for (let t of [messageSuspension(null), messageSuspension("2030-01-01T00:00:00Z"), messageSuspension(null, true)]) {
+		assert.doesNotMatch(t, /t'est fermé/);
 		assert.doesNotMatch(t, /\bIRC\b|membre|\bvous\b|\bvotre\b/i);
 	}
 });
 
+test("le motif du GLINE donne la même phrase que l'écran de config.json", async () => {
+	const { MESSAGE_SUSPENDU, MESSAGE_BANNI } = await import("../lib/suspension.js");
+	const { translateClosing } = await import("../lib/irc-errors.js");
+	const fin = (motif) => translateClosing("Closing Link: Kahen[1.2.3.4] (Banned (G-Lined): " + motif + ")");
+	assert.equal(fin("Compte suspendu"), MESSAGE_SUSPENDU);
+	assert.equal(fin("Compte banni"), MESSAGE_BANNI);
+});
+
 test("seul un 403 « suspended » ferme le t'Chat", () => {
 	assert.deepEqual(refusSuspension(403, { error: "suspended", expiresAt: null }), {
+		suspendu: { message: messageSuspension(null) },
+	});
+	assert.deepEqual(refusSuspension(403, { error: "suspended", expiresAt: null, banned: true }), {
+		suspendu: { message: "Ton compte est banni. Tu ne peux plus accéder au t'Chat." },
+	});
+	// Seul true compte : une API ancienne, sans le champ, garde « suspendu »
+	assert.deepEqual(refusSuspension(403, { error: "suspended", expiresAt: null, banned: "oui" }), {
 		suspendu: { message: messageSuspension(null) },
 	});
 	assert.equal(refusSuspension(403, { error: "autre" }), null);
