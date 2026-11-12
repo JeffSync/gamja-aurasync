@@ -30,6 +30,13 @@ const DEFINITIVES = [
 	/* banned_client (quit.c, 6.2.7), AKILL d'Anope en G-Line */
 	["Banned (G-Lined): [Jeff] spam répété (ID: 5f3a) [ID: 1a2b3c]", "Ton accès au t'Chat est suspendu : spam répété"],
 	["Banned (G-Lined): insultes", "Ton accès au t'Chat est suspendu : insultes"],
+	/* GLINE ~account: de l'API a la suspension d'un compte (D-075) */
+	["Banned (G-Lined): Compte suspendu [ID: 4e5f]", "Ton compte est suspendu : le t'Chat t'est fermé pendant ce temps."],
+	["Banned (G-Lined): Compte suspendu", "Ton compte est suspendu : le t'Chat t'est fermé pendant ce temps."],
+	["Banned (G-Lined): Compte banni [ID: 4e60]", "Ton compte est banni : le t'Chat t'est fermé."],
+	/* Le meme motif dans un autre bannissement, ou prolonge : traduction generique */
+	["Banned (K-Lined): Compte suspendu", "Ton accès au t'Chat est suspendu : Compte suspendu"],
+	["Banned (G-Lined): Compte suspendu pour spam", "Ton accès au t'Chat est suspendu : Compte suspendu pour spam"],
 	["Banned (K-Lined): insultes [ID: 9z]", "Ton accès au t'Chat est suspendu : insultes"],
 	["Banned (Z-Lined): proxy ouvert", "Ton accès au t'Chat est suspendu : proxy ouvert"],
 	["Banned (G-Lined) [ID: 1a2b3c]", "Ton accès au t'Chat est suspendu : motif non précisé"],
