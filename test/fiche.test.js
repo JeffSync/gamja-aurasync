@@ -6,7 +6,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 globalThis.window = globalThis.window || {};
 globalThis.window.innerWidth = 1280;
@@ -21,7 +23,7 @@ globalThis.window.localStorage = {
 globalThis.localStorage = globalThis.window.localStorage;
 
 const fiche = await import("../lib/fiche.js");
-const { contenuFiche, avatarDe, avecAnneau, roleReseau, creerCacheFiches, dernierRecu, trierPrives, TEXTES, DUREE_CACHE } = fiche;
+const { contenuFiche, avatarDe, avecAnneau, roleReseau, creerCacheFiches, dernierRecu, trierPrives, TEXTES, DUREE_CACHE, GENRES, SILHOUETTE_AURA, genreDe } = fiche;
 const { BufferType, Unread, ServerStatus } = await import("../state.js");
 const { default: NickMenu } = await import("../components/nick-menu.js");
 const { default: BufferList } = await import("../components/buffer-list.js");
@@ -645,4 +647,85 @@ test("App : une fiche qui échoue s'affiche « indisponible pour le moment »", 
 	}
 	assert.equal(app.state.nickMenu.erreur, true);
 	assert.equal(app.state.fiches.size, 0);
+});
+
+/* ── Genre (lot 8.2 ; D-077, note du 13 novembre, 9 h 55) ───────────── */
+
+const racineDepot = process.env.AURASYNC_DEPOT
+	|| path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../aurasync");
+const SYMBOLE_SITE = path.join(racineDepot, "apps/web/src/lib/components/SymboleGenre.svelte");
+const sansDepot = existsSync(SYMBOLE_SITE) ? false : "depot aurasync introuvable (" + racineDepot + ") : AURASYNC_DEPOT=<chemin>";
+
+test("genre : les trois valeurs, rien pour une valeur absente ou inconnue", () => {
+	assert.deepEqual(Object.keys(GENRES), ["homme", "femme", "aura"]);
+	assert.equal(GENRES.homme.caractere, "\u2642\uFE0E", "le caractère, suivi de U+FE0E");
+	assert.equal(GENRES.femme.caractere, "\u2640\uFE0E");
+	assert.deepEqual(genreDe({ ...PROFIL, genre: "aura" }), { genre: "aura", libelle: "Aura", caractere: null });
+	for (let g of [undefined, null, "", "autre", "Homme", "constructor", "__proto__"]) {
+		assert.equal(genreDe({ ...PROFIL, genre: g }), null, String(g));
+	}
+	// Seulement sur une fiche de profil
+	for (let card of [{ kind: "indisponible", pseudo: "Kahen", genre: "homme" }, { kind: "bloque_par_moi", pseudo: "Kahen", genre: "femme" }, { kind: "service", pseudo: "Kahen", genre: "aura" }, { kind: "temporaire", pseudo: "Guest1", genre: "homme" }]) {
+		assert.equal(cas(card).genre, null, card.kind);
+	}
+	assert.equal(contenuFiche("Kahen", {}).genre, null, "pendant le chargement");
+	assert.equal(cas(PROFIL).genre, null, "champ absent : rien");
+	assert.equal(cas({ ...PROFIL, genre: "homme" }).genre.libelle, "Homme");
+	assert.equal(cas({ ...PROFIL, moi: true, genre: "femme" }).genre.libelle, "Femme", "sur ma propre fiche aussi");
+});
+
+test("genre rendu : après le titre, ♂ et ♀ en texte, Aura en silhouette, nom accessible", () => {
+	let sans = rendre({});
+	assert.equal(texte(sans.find((n) => classe(n) === "fiche-nom")), "Kahen L.");
+	assert.ok(!sans.some((n) => classe(n) === "fiche-genre"), "champ absent : rien n'est affiché");
+
+	for (let [g, car] of [["homme", "\u2642\uFE0E"], ["femme", "\u2640\uFE0E"]]) {
+		let tout = rendre({ etat: { fiche: { ...PROFIL, genre: g } } });
+		let nom = tout.find((n) => classe(n) === "fiche-nom");
+		assert.equal(texte(nom), "Kahen L." + car, "le titre, puis le symbole");
+		let s = tout.find((n) => classe(n) === "symbole-genre glyphe " + g);
+		assert.equal(s.props.role, "img");
+		assert.equal(s.props["aria-label"], GENRES[g].libelle);
+		assert.equal(s.props.title, GENRES[g].libelle);
+	}
+
+	let tout = rendre({ etat: { fiche: { ...PROFIL, genre: "aura" } } });
+	let svg = tout.find((n) => n.type === "svg" && classe(n) === "symbole-genre aura");
+	assert.ok(svg, "la silhouette, en SVG en ligne");
+	assert.equal(svg.props["aria-label"], "Aura");
+	let dedans = [...noeuds(svg.props.children)].filter((n) => n && n.type);
+	assert.equal(texte(dedans.find((n) => n.type === "title")), "Aura", "l'infobulle");
+	let traits = dedans.filter((n) => n.type === "path");
+	assert.equal(traits.length, 2, "deux traits superposés");
+	assert.ok(traits.every((n) => n.props.d === SILHOUETTE_AURA.trace));
+	assert.deepEqual(traits.map((n) => n.props["stroke-width"]), ["3.6", "1.9"]);
+	assert.deepEqual(dedans.filter((n) => n.type === "stop").map((n) => n.props["stop-color"]), SILHOUETTE_AURA.degrade);
+	assert.ok(!dedans.some((n) => n.props.href || n.props["xlink:href"]), "aucune ressource externe");
+	// Le symbole est dans la ligne du nom, avant le @pseudo
+	let nom = tout.find((n) => classe(n) === "fiche-nom");
+	assert.ok([...noeuds(nom.props.children)].some((n) => n && n.type === "svg" && classe(n) === "symbole-genre aura"));
+});
+
+test("genre : même dessin, mêmes couleurs, même mouvement réduit que le site", { skip: sansDepot }, () => {
+	let site = readFileSync(SYMBOLE_SITE, "utf8");
+	assert.ok(site.includes(SILHOUETTE_AURA.trace), "le tracé de la silhouette");
+	for (let c of SILHOUETTE_AURA.degrade) {
+		assert.ok(site.includes(c), "dégradé : " + c);
+	}
+	for (let t of SILHOUETTE_AURA.traits) {
+		assert.ok(site.includes(`stroke-width="${t.largeur}" opacity="${t.opacite}"`), "trait " + t.largeur);
+		assert.ok(site.includes(`stdDeviation="${t.flou}"`), "flou " + t.flou);
+	}
+	let theme = readFileSync(new URL("../aurasync-theme.css", import.meta.url), "utf8");
+	assert.match(site, /\.glyphe\.homme \{ color: #22d3ee; \}/);
+	assert.match(theme, /\.symbole-genre\.glyphe\.homme \{\s*color: #22d3ee;/);
+	assert.match(site, /\.glyphe\.femme \{ color: #a78bfa; \}/);
+	assert.match(theme, /\.symbole-genre\.glyphe\.femme \{\s*color: #a78bfa;/);
+	assert.match(site, /respire-genre 4s ease-in-out infinite/);
+	assert.match(theme, /respire-genre 4s ease-in-out infinite/);
+	assert.match(theme, /prefers-reduced-motion: reduce\) \{\s*\.symbole-genre \.respire \{\s*animation: none;/);
+	assert.match(theme, /font-variant-emoji: text/);
+	let site16 = /'DejaVu Sans', 'Segoe UI Symbol', 'Noto Sans Symbols'/;
+	assert.match(site, site16);
+	assert.match(theme, /"DejaVu Sans", "Segoe UI Symbol", "Noto Sans Symbols"/);
 });

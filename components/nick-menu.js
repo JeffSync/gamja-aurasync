@@ -4,7 +4,8 @@
  * Une seule fiche remplace le menu d'un pseudo et « Qui est-ce ? » : avatar
  * de 64 px dans l'anneau du profil du site, nom affiche et @pseudo dans le
  * degrade du site, insigne du role a droite (troisieme retouche du 7
- * novembre). Dessous : masque, role reseau, adresse reelle ; puis les
+ * novembre), et le symbole du genre apres le nom quand l'API l'envoie
+ * (lot 8.2). Dessous : masque, role reseau, adresse reelle ; puis les
  * actions, la moderation (D-060) pour % et @, et le reste du WHOIS
  * (salons, inactivite, connexion). Ni rang dans le salon, ni statut, ni
  * « Profil prive ». Le contenu, cas par cas, est decide par lib/fiche.js. En mobile,
@@ -19,6 +20,7 @@ import { peutRendreMuet } from "../lib/mutisme.js";
 import { avecAnneau, contenuFiche, TEXTES } from "../lib/fiche.js";
 import { lignesWhois, LignesBas, LignesHaut } from "./whois-panel.js";
 import Insigne from "./insigne.js";
+import SymboleGenre from "./symbole-genre.js";
 
 const FICHE_W = 320;
 
@@ -244,7 +246,9 @@ export default class NickMenu extends Component {
 				<div class="fiche-tete">
 					${avatar}
 					<div class="fiche-ident">
-						<div class="fiche-nom">${contenu.titre}</div>
+						<div class="fiche-nom">${contenu.titre}${contenu.genre
+							? html`<span class="fiche-genre"><${SymboleGenre} genre=${contenu.genre}/></span>`
+							: null}</div>
 						<div class="fiche-pseudo handle-grad">${contenu.pseudo}</div>
 					</div>
 					${insigne}

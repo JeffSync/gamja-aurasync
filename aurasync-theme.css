@@ -1686,6 +1686,49 @@ ul.switcher-list li a.selected {
 	line-height: 1.25;
 	overflow-wrap: anywhere;
 }
+/* Le genre (lot 8.2) : apres le nom, a sa taille, comme sur la carte du
+   site (SymboleGenre.svelte) ; il passe a la ligne avec le dernier mot */
+.fiche-genre {
+	margin-left: 0.22em;
+	white-space: nowrap;
+}
+.symbole-genre {
+	display: inline-block;
+	vertical-align: -0.12em;
+}
+.symbole-genre.glyphe {
+	font-family: "DejaVu Sans", "Segoe UI Symbol", "Noto Sans Symbols", "Noto Sans Symbols 2", "Apple Symbols", sans-serif;
+	font-size: 1.05em;
+	font-weight: 400;
+	font-style: normal;
+	line-height: 1;
+	letter-spacing: 0;
+	font-variant-emoji: text;
+}
+.symbole-genre.glyphe.homme {
+	color: #22d3ee;
+}
+.symbole-genre.glyphe.femme {
+	color: #a78bfa;
+}
+.symbole-genre.aura {
+	width: 1em;
+	height: 1em;
+	overflow: visible;
+	vertical-align: -0.14em;
+}
+.symbole-genre .respire {
+	animation: respire-genre 4s ease-in-out infinite;
+}
+@keyframes respire-genre {
+	0%, 100% { opacity: 0.75; }
+	50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.symbole-genre .respire {
+		animation: none;
+	}
+}
 .fiche-pseudo {
 	margin-top: 2px;
 	color: var(--aura-text-dim);
